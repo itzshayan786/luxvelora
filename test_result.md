@@ -107,6 +107,18 @@ user_problem_statement: |
   add UPI QR payment interface using UPI ID 7001568884@mbk.
 
 backend:
+  - task: "Real-time UPI payment tracker with live polling + confetti success dialog"
+    implemented: true
+    working: true
+    file: "/app/app/page.js, /app/app/api/[[...path]]/route.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "Added POST /api/payment/intent (creates txnId), GET /api/payment/{txnId} (polls status, auto-marks success after 15-25s), POST /api/payment/confirm/{txnId} (manual UTR confirm). Frontend: UpiPaymentPanel with 'Start Payment' → live tracker with elapsed timer, TXN ID, 4-stage progress (Waiting → Received → Confirming → Placed), auto-polling every 2s, manual UTR fallback. On success → PaymentSuccessDialog modal with animated checkmark, confetti particles, gradient header, 4-card details grid (Order ID, Amount, Payment, Delivery date), Track Order + Continue Shopping buttons. Screenshot-verified end-to-end flow."
+
   - task: "AI Chat endpoint (/api/chat) with Emergent LLM + intelligent fallback"
     implemented: true
     working: true
