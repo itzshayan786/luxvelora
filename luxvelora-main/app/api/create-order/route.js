@@ -7,6 +7,12 @@ export const runtime = 'nodejs'
 const CURRENCY = 'INR'
 const FREE_SHIPPING_THRESHOLD = 1499
 const STANDARD_SHIPPING = 99
+const COUPONS = {
+  VELORA10: { type: 'pct', value: 10, min: 0, label: '10% off' },
+  FUTURE20: { type: 'pct', value: 20, min: 2000, label: '20% off (min ₹2000)' },
+  FLAT500: { type: 'flat', value: 500, min: 3000, label: '₹500 off (min ₹3000)' },
+  FIRST15: { type: 'pct', value: 15, min: 1500, label: '15% off first order' },
+}
 
 const toPaise = (amount) => Math.round(Number(amount) * 100)
 
@@ -76,9 +82,21 @@ export async function POST(request) {
 
     const subtotal = pricedItems.reduce((sum, item) => sum + item.lineTotal, 0)
     const mrpTotal = pricedItems.reduce((sum, item) => sum + item.lineMrp, 0)
-    const discount = Math.max(0, mrpTotal - subtotal)
+    const productDiscount = Math.max(0, mrpTotal - subtotal)
+    const couponCode = String(body.coupon || '').trim().toUpperCase()
+    const coupon = couponCode ? COUPONS[couponCode] : null
+
+    if (couponCode && !coupon) {
+      return NextResponse.json({ error: 'Invalid coupon' }, { status: 400 })
+    }
+
+    if (coupon && subtotal < coupon.min) {
+      return NextResponse.json({ error: 'Coupon minimum cart value is not met' }, { status: 400 })
+    }
+
+    const couponDiscount = coupon ? (coupon.type === 'pct' ? Math.round(subtotal * coupon.value / 100) : coupon.value) : 0
     const shipping = subtotal >= FREE_SHIPPING_THRESHOLD ? 0 : STANDARD_SHIPPING
-    const total = subtotal + shipping
+    const total = Math.max(0, subtotal + shipping - couponDiscount)
     const amount = toPaise(total)
     const receipt = `VEL${Date.now().toString(36).toUpperCase()}`
 
@@ -101,7 +119,9 @@ export async function POST(request) {
       currency: CURRENCY,
       subtotal,
       mrp: mrpTotal,
-      discount,
+      productDiscount,
+      coupon: coupon ? { code: couponCode, label: coupon.label, discount: couponDiscount } : null,
+      discount: couponDiscount,
       shipping,
       total,
       status: 'created',
@@ -124,7 +144,9 @@ export async function POST(request) {
         quantity: pricedItems.reduce((sum, item) => sum + item.quantity, 0),
         subtotal,
         mrp: mrpTotal,
-        discount,
+        productDiscount,
+        coupon: coupon ? { code: couponCode, label: coupon.label, discount: couponDiscount } : null,
+        discount: couponDiscount,
         shipping,
         total,
       },
