@@ -1,4 +1,5 @@
 'use client'
+import { loadRazorpay } from "@/lib/razorpay";
 import { useState, useEffect, useMemo, useRef, createContext, useContext } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Button } from '@/components/ui/button'
@@ -1137,14 +1138,127 @@ const CheckoutPage = () => {
     if (r.error) return toast.error(r.error)
     setApplied(r); toast.success(`${r.label} applied!`)
   }
-  const placeOrder = async () => {
-    setPlacing(true)
-    const body = { items: cart, address: form, email: form.email, name: form.name, phone: form.phone, payment, coupon: applied?.code, subtotal, shipping, discount, total }
-    const r = await fetch('/api/checkout', { method: 'POST', body: JSON.stringify(body) }).then(x => x.json())
-    setPlacing(false)
-    if (r.error) return toast.error(r.error)
-    clearCart(); setSuccessOrder(r.order)
+  const placeRazorpayOrder = async () => {
+  setPlacing(true);
+
+  try {
+    const orderRes = await fetch("/api/create-order", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        amount: total,
+      }),
+    });
+
+    const data = await orderRes.json();
+
+    if (!data.success) {
+      setPlacing(false);
+      return toast.error(data.error || "Unable to create Razorpay order");
+    }
+
+    const loaded = await loadRazorpay();
+
+    if (!loaded) {
+      setPlacing(false);
+      return toast.error("Failed to load Razorpay");
+    }
+
+    const options = {
+      key: data.key,
+      amount: data.order.amount,
+      currency: data.order.currency,
+      name: "VELORA",
+      description: "Fashion Order",
+      order_id: data.order.id,
+
+      prefill: {
+        name: form.name,
+        email: form.email,
+        contact: form.phone,
+      },
+
+      theme: {
+        color: "#2563eb",
+      },
+
+      handler: async function (response) {
+        const verify = await fetch("/api/verify-payment", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(response),
+        });
+
+        const result = await verify.json();
+
+        if (!result.success) {
+          return toast.error("Payment verification failed");
+        }
+
+        toast.success("Payment Successful");
+
+        clearCart();
+
+        setSuccessOrder({
+          id: response.razorpay_order_id,
+          payment: "Razorpay",
+        });
+      },
+
+      modal: {
+        ondismiss: () => {
+          setPlacing(false);
+        },
+      },
+    };
+
+    const rzp = new window.Razorpay(options);
+    rzp.open();
+
+  } catch (err) {
+    console.error(err);
+    toast.error("Something went wrong");
   }
+
+  setPlacing(false);
+};
+  const placeOrder = async () => {
+  if (payment === "razorpay") {
+    return await placeRazorpayOrder();
+  }
+
+  setPlacing(true);
+
+  const body = {
+    items: cart,
+    address: form,
+    email: form.email,
+    name: form.name,
+    phone: form.phone,
+    payment,
+    coupon: applied?.code,
+    subtotal,
+    shipping,
+    discount,
+    total,
+  };
+
+  const r = await fetch("/api/checkout", {
+    method: "POST",
+    body: JSON.stringify(body),
+  }).then((x) => x.json());
+
+  setPlacing(false);
+
+  if (r.error) return toast.error(r.error);
+
+  clearCart();
+  setSuccessOrder(r.order);
+};
 
   useEffect(() => { if (cart.length === 0 && !successOrder) setRoute({ view: 'cart' }) }, [cart, successOrder])
   if (cart.length === 0 && !successOrder) return null
