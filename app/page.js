@@ -19,6 +19,25 @@ import {
 const ShopCtx = createContext(null)
 const useShop = () => useContext(ShopCtx)
 const fmt = (n) => '₹' + Number(n).toLocaleString('en-IN')
+const loadRazorpay = () => {
+  return new Promise((resolve) => {
+    const existing = document.getElementById("razorpay-sdk");
+
+    if (existing) {
+      resolve(true);
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.id = "razorpay-sdk";
+    script.src = "https://checkout.razorpay.com/v1/checkout.js";
+
+    script.onload = () => resolve(true);
+    script.onerror = () => resolve(false);
+
+    document.body.appendChild(script);
+  });
+};
 
 const VeloraLogo = ({ size = 'md' }) => {
   const dims = { sm: 'text-xl', md: 'text-2xl', lg: 'text-4xl', xl: 'text-6xl' }[size]
@@ -1104,7 +1123,7 @@ const CheckoutPage = () => {
   const [step, setStep] = useState(1)
   const [form, setForm] = useState({ name: user?.name || '', email: user?.email || '', phone: '', line1: '', line2: '', city: '', state: '', pincode: '', gst: '' })
   const [coupon, setCoupon] = useState(''); const [applied, setApplied] = useState(null)
-  const [payment, setPayment] = useState('upi')
+  const [payment, setPayment] = useState('razorpay')
   const [placing, setPlacing] = useState(false)
   const [successOrder, setSuccessOrder] = useState(null)
 
@@ -1164,22 +1183,54 @@ const CheckoutPage = () => {
             </div>
           )}
           {step === 2 && (
-            <div className="space-y-4">
-              <div className="glass rounded-2xl p-6 border border-black/10 space-y-3">
-                <h2 className="text-xl font-display font-bold mb-4">Payment Method</h2>
-                {[
-                  { v: 'upi', l: 'UPI · PhonePe / GPay / Paytm', s: 'Scan QR or pay to UPI ID · Instant · No fee', icon: Smartphone },
-                  { v: 'razorpay', l: 'Cards / Netbanking / Wallet', s: 'via Razorpay · Secure · Instant', icon: CreditCard },
-                  { v: 'cod', l: 'Cash on Delivery', s: '₹49 handling fee applies', icon: Package },
-                ].map(o => (
-                  <button key={o.v} onClick={() => setPayment(o.v)} className={`w-full flex items-center gap-4 p-4 rounded-xl border transition ${payment === o.v ? 'border-blue-400 bg-blue-50/60' : 'border-black/10 hover:border-black/20'}`}>
-                    <div className="w-10 h-10 rounded-lg bg-black/[0.02] flex items-center justify-center"><o.icon className="w-5 h-5" /></div>
-                    <div className="text-left flex-1"><p className="font-medium">{o.l}</p><p className="text-xs text-neutral-500">{o.s}</p></div>
-                    <div className={`w-5 h-5 rounded-full border-2 ${payment === o.v ? 'border-blue-400 bg-blue-400' : 'border-black/20'}`} />
-                  </button>
-                ))}
-              </div>
+  <div className="space-y-4">
+    <div className="glass rounded-2xl p-6 border border-black/10 space-y-3">
+      <h2 className="text-xl font-display font-bold mb-4">
+        Payment Method
+      </h2>
 
+      {[
+        {
+          v: "razorpay",
+          l: "UPI / Cards / Net Banking / Wallets",
+          s: "Powered by Razorpay · 100% Secure",
+          icon: CreditCard,
+        },
+        {
+          v: "cod",
+          l: "Cash on Delivery",
+          s: "₹49 handling fee applies",
+          icon: Package,
+        },
+      ].map((o) => (
+        <button
+          key={o.v}
+          onClick={() => setPayment(o.v)}
+          className={`w-full flex items-center gap-4 p-4 rounded-xl border transition ${
+            payment === o.v
+              ? "border-blue-400 bg-blue-50/60"
+              : "border-black/10 hover:border-black/20"
+          }`}
+        >
+          <div className="w-10 h-10 rounded-lg bg-black/[0.02] flex items-center justify-center">
+            <o.icon className="w-5 h-5" />
+          </div>
+
+          <div className="text-left flex-1">
+            <p className="font-medium">{o.l}</p>
+            <p className="text-xs text-neutral-500">{o.s}</p>
+          </div>
+
+          <div
+            className={`w-5 h-5 rounded-full border-2 ${
+              payment === o.v
+                ? "border-blue-400 bg-blue-400"
+                : "border-black/20"
+            }`}
+          />
+        </button>
+      ))}
+    </div>
               {payment === 'upi' && (
                 <UpiPaymentPanel total={total} onSuccess={async (utr) => {
                   // Payment received — now place the order
