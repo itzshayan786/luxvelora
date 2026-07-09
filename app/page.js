@@ -665,7 +665,7 @@ const ShopPage = () => {
       </div>
       <div>
         <p className="text-xs tracking-[0.2em] text-neutral-500 mb-3">CATEGORY</p>
-        {['all', 'oversized', 'tops', 'bottoms', 'dresses', 'outerwear'].map(c => (
+        {['all', 'oversized', 'tops', 'bottoms', 'dresses', 'outerwear', 'Testing'].map(c => (
           <button key={c} onClick={() => setCategory(c)} className={`block w-full text-left py-2 px-3 rounded-lg text-sm capitalize ${category === c ? 'bg-blue-500/20 text-blue-300' : 'hover:bg-black/[0.02]'}`}>{c}</button>
         ))}
       </div>
@@ -862,7 +862,13 @@ const ProductPage = () => {
 const CartPage = () => {
   const { cart, updateCart, removeFromCart, setRoute } = useShop()
   const subtotal = cart.reduce((s, i) => s + i.price * i.qty, 0)
-  const shipping = subtotal > 1499 || subtotal === 0 ? 0 : 99
+  // TEMPORARY TESTING PRODUCT - START
+  // Calculate subtotal of other products (excluding VELORA Payment Test) for shipping logic
+  const otherSubtotal = cart
+    .filter(i => i.id !== 'p-payment-test' && i.slug !== 'velora-payment-test')
+    .reduce((s, i) => s + i.price * i.qty, 0)
+  const shipping = (otherSubtotal > 1499 || otherSubtotal === 0) ? 0 : 99
+  // TEMPORARY TESTING PRODUCT - END
   const total = subtotal + shipping
 
   if (cart.length === 0) return (
@@ -905,7 +911,7 @@ const CartPage = () => {
           <div className="space-y-2 text-sm">
             <div className="flex justify-between text-neutral-700"><span>Subtotal</span><span>{fmt(subtotal)}</span></div>
             <div className="flex justify-between text-neutral-700"><span>Shipping</span><span>{shipping === 0 ? 'FREE' : fmt(shipping)}</span></div>
-            {subtotal < 1499 && <p className="text-xs text-blue-400">Add ₹{1499 - subtotal} more for FREE shipping</p>}
+            {otherSubtotal > 0 && otherSubtotal < 1499 && <p className="text-xs text-blue-400">Add ₹{1499 - otherSubtotal} more for FREE shipping</p>}
           </div>
           <div className="border-t border-black/10 my-4" />
           <div className="flex justify-between font-bold text-lg mb-6"><span>Total</span><span className="silver-text">{fmt(total)}</span></div>
@@ -1095,9 +1101,17 @@ const CheckoutPage = () => {
     return cart.reduce((s, i) => s + i.price * i.qty, 0)
   }, [cart])
 
+  // TEMPORARY TESTING PRODUCT - START
+  const otherSubtotal = useMemo(() => {
+    return cart
+      .filter(i => i.id !== 'p-payment-test' && i.slug !== 'velora-payment-test')
+      .reduce((s, i) => s + i.price * i.qty, 0)
+  }, [cart])
+
   const shipping = useMemo(() => {
-    return subtotal > 1499 ? 0 : 99
-  }, [subtotal])
+    return (otherSubtotal > 1499 || otherSubtotal === 0) ? 0 : 99
+  }, [otherSubtotal])
+  // TEMPORARY TESTING PRODUCT - END
 
   const discount = useMemo(() => {
     return applied?.discount || 0

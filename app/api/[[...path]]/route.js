@@ -148,6 +148,32 @@ const SEED_PRODUCTS = [
   { id: 'p10', name: 'Nova Leather Skirt', slug: 'nova-leather-skirt', category: 'bottoms', gender: 'women', price: 3999, mrp: 6499, discount: 38, images: ['https://images.pexels.com/photos/5493535/pexels-photo-5493535.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940'], colors: ['Void Black','Espresso'], sizes: ['XS','S','M','L'], stock: 22, rating: 4.9, reviews: 98, tags: ['limited','new'], description: 'Vegan leather mini skirt with asymmetric hem and side zip. Buttery-soft hand feel.', material: 'Premium Vegan Leather', badge: 'LIMITED' },
   { id: 'p11', name: 'Solstice Puffer Vest', slug: 'solstice-puffer-vest', category: 'outerwear', gender: 'unisex', price: 4199, mrp: 6299, discount: 33, images: ['https://images.unsplash.com/photo-1472417583565-62e7bdeda490?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA2ODl8MHwxfHNlYXJjaHwzfHxsdXh1cnklMjBmYXNoaW9ufGVufDB8fHxibGFja3wxNzgzMTM2NTY3fDA&ixlib=rb-4.1.0&q=85'], colors: ['Onyx','Metallic Silver'], sizes: ['S','M','L','XL'], stock: 36, rating: 4.6, reviews: 76, tags: ['new'], description: 'Cropped puffer vest with recycled down fill and matte metallic shell fabric.', material: 'Recycled Nylon Shell / Down Fill', badge: 'NEW' },
   { id: 'p12', name: 'Eclipse Cargo Shorts', slug: 'eclipse-cargo-shorts', category: 'bottoms', gender: 'men', price: 1999, mrp: 2999, discount: 33, images: ['https://images.unsplash.com/photo-1557130680-0f816eef4743?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjY2NzF8MHwxfHNlYXJjaHwzfHxzdHJlZXR3ZWFyfGVufDB8fHxibGFja3wxNzgzMTM2NTczfDA&ixlib=rb-4.1.0&q=85'], colors: ['Void Black','Sand','Olive'], sizes: ['28','30','32','34','36'], stock: 88, rating: 4.5, reviews: 234, tags: ['sale'], description: 'Utility cargo shorts with multiple pockets and drawstring waist. Perfect drop.', material: 'Cotton Twill', badge: 'SALE' },
+  // TEMPORARY TESTING PRODUCT - START
+  // This is a temporary product used only for Razorpay payment testing before production launch.
+  // Can be safely removed later.
+  {
+    id: 'p-payment-test',
+    name: 'VELORA Payment Test',
+    slug: 'velora-payment-test',
+    category: 'Testing',
+    gender: 'unisex',
+    price: 1,
+    mrp: 99,
+    discount: 99,
+    images: [
+      'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="600" height="800" viewBox="0 0 600 800"><rect width="100%" height="100%" fill="%23fcfbf9"/><text x="50%" y="50%" font-family="sans-serif" font-size="28" font-weight="600" fill="%230a0a0a" dominant-baseline="middle" text-anchor="middle" letter-spacing="0.15em">VELORA</text><text x="50%" y="54%" font-family="sans-serif" font-size="14" fill="%23737373" dominant-baseline="middle" text-anchor="middle" letter-spacing="0.05em">PAYMENT TEST (₹1)</text></svg>'
+    ],
+    colors: ['Default'],
+    sizes: ['One Size'],
+    stock: 999,
+    rating: 5.0,
+    reviews: 1,
+    tags: ['testing'],
+    description: 'Temporary product used only for Razorpay payment testing before production launch.',
+    material: 'Premium Digital Voucher',
+    badge: 'TESTING'
+  },
+  // TEMPORARY TESTING PRODUCT - END
 ]
 
 async function seedIfEmpty() {
@@ -199,12 +225,80 @@ export async function GET(request, { params }) {
       else sortObj = { rating: -1 }
 
       const products = await database.collection('products').find(query).sort(sortObj).limit(100).toArray()
+      
+      // TEMPORARY TESTING PRODUCT - START
+      // Inject testing product dynamically if it doesn't exist in the DB results.
+      const testProduct = {
+        id: 'p-payment-test',
+        name: 'VELORA Payment Test',
+        slug: 'velora-payment-test',
+        category: 'Testing',
+        gender: 'unisex',
+        price: 1,
+        mrp: 99,
+        discount: 99,
+        images: [
+          'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="600" height="800" viewBox="0 0 600 800"><rect width="100%" height="100%" fill="%23fcfbf9"/><text x="50%" y="50%" font-family="sans-serif" font-size="28" font-weight="600" fill="%230a0a0a" dominant-baseline="middle" text-anchor="middle" letter-spacing="0.15em">VELORA</text><text x="50%" y="54%" font-family="sans-serif" font-size="14" fill="%23737373" dominant-baseline="middle" text-anchor="middle" letter-spacing="0.05em">PAYMENT TEST (₹1)</text></svg>'
+        ],
+        colors: ['Default'],
+        sizes: ['One Size'],
+        stock: 999,
+        rating: 5.0,
+        reviews: 1,
+        tags: ['testing'],
+        description: 'Temporary product used only for Razorpay payment testing before production launch.',
+        material: 'Premium Digital Voucher',
+        badge: 'TESTING'
+      }
+
+      if (!products.some(p => p.id === 'p-payment-test')) {
+        let matches = true
+        if (gender && gender !== 'all' && gender !== 'unisex') matches = false
+        if (category && category !== 'all' && category !== 'Testing') matches = false
+        if (tag && tag !== 'testing') matches = false
+        if (search && !/velora|payment|test/i.test(search)) matches = false
+        if (minPrice > 1 || maxPrice < 1) matches = false
+
+        if (matches) {
+          products.push(testProduct)
+        }
+      }
+      // TEMPORARY TESTING PRODUCT - END
+
       return NextResponse.json({ products: products.map(cleanDoc) })
     }
 
     if (route === 'product' && path[1]) {
       await seedIfEmpty()
-      const product = await database.collection('products').findOne({ $or: [{ id: path[1] }, { slug: path[1] }] })
+      let product = await database.collection('products').findOne({ $or: [{ id: path[1] }, { slug: path[1] }] })
+      
+      // TEMPORARY TESTING PRODUCT - START
+      if (!product && (path[1] === 'p-payment-test' || path[1] === 'velora-payment-test')) {
+        product = {
+          id: 'p-payment-test',
+          name: 'VELORA Payment Test',
+          slug: 'velora-payment-test',
+          category: 'Testing',
+          gender: 'unisex',
+          price: 1,
+          mrp: 99,
+          discount: 99,
+          images: [
+            'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="600" height="800" viewBox="0 0 600 800"><rect width="100%" height="100%" fill="%23fcfbf9"/><text x="50%" y="50%" font-family="sans-serif" font-size="28" font-weight="600" fill="%230a0a0a" dominant-baseline="middle" text-anchor="middle" letter-spacing="0.15em">VELORA</text><text x="50%" y="54%" font-family="sans-serif" font-size="14" fill="%23737373" dominant-baseline="middle" text-anchor="middle" letter-spacing="0.05em">PAYMENT TEST (₹1)</text></svg>'
+          ],
+          colors: ['Default'],
+          sizes: ['One Size'],
+          stock: 999,
+          rating: 5.0,
+          reviews: 1,
+          tags: ['testing'],
+          description: 'Temporary product used only for Razorpay payment testing before production launch.',
+          material: 'Premium Digital Voucher',
+          badge: 'TESTING'
+        }
+      }
+      // TEMPORARY TESTING PRODUCT - END
+
       if (!product) return NextResponse.json({ error: 'Product not found' }, { status: 404 })
       const related = await database.collection('products').find({ category: product.category, id: { $ne: product.id } }).limit(4).toArray()
       return NextResponse.json({ product: cleanDoc(product), related: related.map(cleanDoc) })
