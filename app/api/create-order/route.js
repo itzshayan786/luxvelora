@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
-import Razorpay from "razorpay";
+import { getRazorpay, validateEnv } from "@/lib/server-init";
+
+export const dynamic = "force-dynamic";
 
 export async function POST(req) {
   try {
-    const razorpay = new Razorpay({
-  key_id: process.env.RAZORPAY_KEY_ID,
-  key_secret: process.env.RAZORPAY_KEY_SECRET,
-});
+    validateEnv();
+    const razorpay = getRazorpay();
     const body = await req.json();
 
     const { amount } = body;

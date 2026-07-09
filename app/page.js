@@ -1,5 +1,5 @@
 'use client'
-import { loadRazorpay } from "@/lib/razorpay";
+import { loadRazorpay, openRazorpayCheckout } from "@/lib/razorpay";
 import { useState, useEffect, useMemo, useRef, createContext, useContext } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Button } from '@/components/ui/button'
@@ -20,25 +20,6 @@ import {
 const ShopCtx = createContext(null)
 const useShop = () => useContext(ShopCtx)
 const fmt = (n) => '₹' + Number(n).toLocaleString('en-IN')
-const loadRazorpay = () => {
-  return new Promise((resolve) => {
-    const existing = document.getElementById("razorpay-sdk");
-
-    if (existing) {
-      resolve(true);
-      return;
-    }
-
-    const script = document.createElement("script");
-    script.id = "razorpay-sdk";
-    script.src = "https://checkout.razorpay.com/v1/checkout.js";
-
-    script.onload = () => resolve(true);
-    script.onerror = () => resolve(false);
-
-    document.body.appendChild(script);
-  });
-};
 
 const VeloraLogo = ({ size = 'md' }) => {
   const dims = { sm: 'text-xl', md: 'text-2xl', lg: 'text-4xl', xl: 'text-6xl' }[size]
@@ -1139,93 +1120,66 @@ const CheckoutPage = () => {
     setApplied(r); toast.success(`${r.label} applied!`)
   }
   const placeRazorpayOrder = async () => {
-  setPlacing(true);
+    setPlacing(true);
 
-  try {
-    const orderRes = await fetch("/api/create-order", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        amount: total,
-      }),
-    });
+    try {
+      const orderRes = await fetch("/api/create-order", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          amount: total,
+        }),
+      });
 
-    const data = await orderRes.json();
+      const data = await orderRes.json();
 
-    if (!data.success) {
-      setPlacing(false);
-      return toast.error(data.error || "Unable to create Razorpay order");
-    }
+      if (!data.success) {
+        setPlacing(false);
+        return toast.error(data.error || "Unable to create Razorpay order");
+      }
 
-    const loaded = await loadRazorpay();
-
-    if (!loaded) {
-      setPlacing(false);
-      return toast.error("Failed to load Razorpay");
-    }
-
-    const options = {
-      key: data.key,
-      amount: data.order.amount,
-      currency: data.order.currency,
-      name: "VELORA",
-      description: "Fashion Order",
-      order_id: data.order.id,
-
-      prefill: {
-        name: form.name,
+      const orderPayload = {
+        items: cart,
+        address: form,
         email: form.email,
-        contact: form.phone,
-      },
+        name: form.name,
+        phone: form.phone,
+        payment: "razorpay",
+        coupon: applied?.code || null,
+        subtotal,
+        shipping,
+        discount,
+        total,
+      };
 
-      theme: {
-        color: "#2563eb",
-      },
-
-      handler: async function (response) {
-        const verify = await fetch("/api/verify-payment", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(response),
-        });
-
-        const result = await verify.json();
-
-        if (!result.success) {
-          return toast.error("Payment verification failed");
-        }
-
-        toast.success("Payment Successful");
-
-        clearCart();
-
-        setSuccessOrder({
-          id: response.razorpay_order_id,
-          payment: "Razorpay",
-        });
-      },
-
-      modal: {
-        ondismiss: () => {
+      await openRazorpayCheckout({
+        order: data,
+        prefill: {
+          name: form.name,
+          email: form.email,
+          contact: form.phone,
+        },
+        description: "Fashion Order",
+        orderPayload,
+        onVerified: (verifiedData) => {
+          toast.success("Payment Successful");
+          clearCart();
+          setSuccessOrder(verifiedData.order);
           setPlacing(false);
         },
-      },
-    };
+        onDismiss: () => {
+          setPlacing(false);
+        }
+      });
 
-    const rzp = new window.Razorpay(options);
-    rzp.open();
-
-  } catch (err) {
-    console.error(err);
-    toast.error("Something went wrong");
-  }
-
-  setPlacing(false);
-};
+    } catch (err) {
+      console.error(err);
+      toast.error("Something went wrong");
+      setPlacing(false);
+    }
+  };
   const placeOrder = async () => {
   if (payment === "razorpay") {
     return await placeRazorpayOrder();
@@ -1403,6 +1357,9 @@ const CheckoutPage = () => {
           <div className="flex justify-between font-bold text-lg"><span>Total</span><span className="silver-text">{fmt(total)}</span></div>
         </div>
       </div>
+
+
+
       <PaymentSuccessDialog order={successOrder} onClose={() => setSuccessOrder(null)} />
     </div>
   )
@@ -1691,7 +1648,7 @@ const QUICK_OPTIONS = [
 const AIChatWidget = () => {
   const [open, setOpen] = useState(false)
   const [messages, setMessages] = useState([
-    { role: 'assistant', content: "Hi ✨ I'm **Vera**, your Velora AI concierge. I can help with sizing, orders, returns, payments and styling — powered by GPT. How can I help today?" }
+    { role: 'assistant', content: "Hi ✨ I'm **Vera**, your Velora AI concierge. I can help with sizing, orders, returns, payments and styling — powered by Gemini. How can I help today?" }
   ])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
@@ -1818,7 +1775,7 @@ const AIChatWidget = () => {
                   {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                 </button>
               </div>
-              <p className="text-[10px] text-neutral-400 text-center mt-2">Powered by GPT · Velora may make mistakes · <button onClick={() => { setMessages([messages[0]]); setShowQuick(true) }} className="underline hover:text-blue-500">Reset chat</button></p>
+              <p className="text-[10px] text-neutral-400 text-center mt-2">Powered by Gemini · Velora may make mistakes · <button onClick={() => { setMessages([messages[0]]); setShowQuick(true) }} className="underline hover:text-blue-500">Reset chat</button></p>
             </div>
           </motion.div>
         )}

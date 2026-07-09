@@ -1,23 +1,144 @@
 import { NextResponse } from 'next/server'
-import { MongoClient } from 'mongodb'
 import { v4 as uuidv4 } from 'uuid'
+import { getDb, getGemini, validateEnv } from '@/lib/server-init'
 
-const client = new MongoClient(process.env.MONGO_URL)
-let db
+export const dynamic = "force-dynamic";
 
-async function getDb() {
-  if (!db) {
-    await client.connect()
-    db = client.db(process.env.DB_NAME || 'velora')
+export { getDb };
+
+let isMock = false
+
+// In-memory mock database
+const MEMORY_DB = {
+  products: null,
+  orders: [],
+  payments: [],
+  users: [],
+  newsletter: [],
+  reviews: [],
+  contacts: [],
+  conversations: []
+};
+
+function createMockDb() {
+  if (MEMORY_DB.products === null) {
+    MEMORY_DB.products = [...(SEED_PRODUCTS || [])];
   }
-  return db
+  return {
+    collection(colName) {
+      if (!MEMORY_DB[colName]) {
+        MEMORY_DB[colName] = [];
+      }
+      const data = MEMORY_DB[colName];
+
+      return {
+        async countDocuments() {
+          return data.length;
+        },
+        async insertMany(docs) {
+          data.push(...docs);
+          return { insertedCount: docs.length };
+        },
+        async insertOne(doc) {
+          data.push(doc);
+          return { insertedId: doc.id || doc._id || Math.random().toString() };
+        },
+        async findOne(query) {
+          return data.find(item => matchesQuery(item, query)) || null;
+        },
+        find(query) {
+          let filtered = data.filter(item => matchesQuery(item, query));
+          
+          return {
+            sort(sortObj) {
+              const keys = Object.keys(sortObj || {});
+              if (keys.length > 0) {
+                const key = keys[0];
+                const order = sortObj[key];
+                filtered.sort((a, b) => {
+                  if (a[key] < b[key]) return -1 * order;
+                  if (a[key] > b[key]) return 1 * order;
+                  return 0;
+                });
+              }
+              return this;
+            },
+            limit(n) {
+              filtered = filtered.slice(0, n);
+              return this;
+            },
+            async toArray() {
+              return filtered;
+            }
+          };
+        },
+        async updateOne(query, update, options = {}) {
+          let item = data.find(i => matchesQuery(i, query));
+          if (!item && options.upsert) {
+            item = {};
+            data.push(item);
+          }
+          if (item) {
+            if (update.$set) {
+              Object.assign(item, update.$set);
+            }
+            if (update.$setOnInsert && options.upsert) {
+              Object.assign(item, update.$setOnInsert);
+            }
+            if (update.$push) {
+              for (const [key, value] of Object.entries(update.$push)) {
+                if (!item[key]) item[key] = [];
+                if (value && typeof value === 'object' && value.$each) {
+                  item[key].push(...value.$each);
+                } else {
+                  item[key].push(value);
+                }
+              }
+            }
+            return { modifiedCount: 1, upsertedCount: options.upsert ? 1 : 0 };
+          }
+          return { modifiedCount: 0 };
+        }
+      };
+    }
+  };
 }
 
+function matchesQuery(item, query) {
+  if (!query || Object.keys(query).length === 0) return true;
+  
+  if (query.$or) {
+    return query.$or.some(subQuery => matchesQuery(item, subQuery));
+  }
+  
+  for (const [key, value] of Object.entries(query)) {
+    if (value && typeof value === 'object') {
+      if (value.$gte !== undefined || value.$lte !== undefined) {
+        const val = item[key];
+        if (value.$gte !== undefined && val < value.$gte) return false;
+        if (value.$lte !== undefined && val > value.$lte) return false;
+        continue;
+      }
+      if (value.$regex !== undefined) {
+        const val = item[key] || '';
+        const regex = new RegExp(value.$regex, value.$options || '');
+        if (!regex.test(val)) return false;
+        continue;
+      }
+      if (value.$ne !== undefined) {
+        if (item[key] === value.$ne) return false;
+        continue;
+      }
+    }
+    if (item[key] !== value) return false;
+  }
+  return true;
+}
 // Product seed data — premium fashion mockups
 const SEED_PRODUCTS = [
   { id: 'p1', name: 'Nebula Oversized Hoodie', slug: 'nebula-oversized-hoodie', category: 'oversized', gender: 'unisex', price: 3499, mrp: 5999, discount: 42, images: ['https://images.unsplash.com/photo-1472417583565-62e7bdeda490?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA2ODl8MHwxfHNlYXJjaHwzfHxsdXh1cnklMjBmYXNoaW9ufGVufDB8fHxibGFja3wxNzgzMTM2NTY3fDA&ixlib=rb-4.1.0&q=85','https://images.unsplash.com/photo-1616837874254-8d5aaa63e273?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA2ODl8MHwxfHNlYXJjaHw0fHxsdXh1cnklMjBmYXNoaW9ufGVufDB8fHxibGFja3wxNzgzMTM2NTY3fDA&ixlib=rb-4.1.0&q=85'], colors: ['Void Black','Chrome Silver','Cyber Blue'], sizes: ['S','M','L','XL','XXL'], stock: 42, rating: 4.8, reviews: 284, tags: ['bestseller','new'], description: 'Engineered from ultra-premium 480 GSM French terry. Drop shoulder cut, boxy silhouette, mirror-metallic Velora emblem. Wear the future.', material: '80% Cotton / 20% Recycled Polyester', badge: 'BESTSELLER' },
   { id: 'p2', name: 'Chrome Utility Cargo', slug: 'chrome-utility-cargo', category: 'bottoms', gender: 'men', price: 2799, mrp: 4499, discount: 38, images: ['https://images.unsplash.com/photo-1557130680-0f816eef4743?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjY2NzF8MHwxfHNlYXJjaHwzfHxzdHJlZXR3ZWFyfGVufDB8fHxibGFja3wxNzgzMTM2NTczfDA&ixlib=rb-4.1.0&q=85'], colors: ['Obsidian','Graphite'], sizes: ['28','30','32','34','36'], stock: 68, rating: 4.7, reviews: 156, tags: ['new'], description: 'Techwear cargo trousers with reinforced knee panels and reflective piping. Water-repellent finish.', material: 'Ripstop Nylon Blend', badge: 'NEW' },
-  { id: 'p3', name: 'Ethereal Silk Slip Dress', slug: 'ethereal-silk-slip-dress', category: 'dresses', gender: 'women', price: 4299, mrp: 6999, discount: 39, images: ['https://images.unsplash.com/photo-1541519481457-763224276691?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1Mjh8MHwxfHNlYXJjaHwzfHxmYXNoaW9uJTIwbW9kZWx8ZW58MHx8fGJsYWNrfDE3ODMxMzY1ODN8MA&ixlib=rb-4.1.0&q=85','https://images.unsplash.com/photo-1574015974293-817f0ebebb74?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1Mjh8MHwxfHNlYXJjaHwxfHxmYXNoaW9uJTIwbW9kZWx8ZW58MHx8fGJsYWNrfDE3ODMxMzY1ODN8MA&ixlib=rb-4.1.0&q=85'], colors: ['Onyx','Champagne','Ice'], sizes: ['XS','S','M','L'], stock: 24, rating: 4.9, reviews: 412, tags: ['bestseller','sale'], description: 'Bias-cut mulberry silk slip. Cowl neck, adjustable straps, unfinished raw edge. Made in Bengaluru.', material: '100% Mulberry Silk', badge: 'LIMITED' },
+  { id: 'p3', name: 'Ethereal Silk Slip Dress', slug: 'ethereal-silk-slip-dress', category: 'dresses', gender: 'women', price: 4299, mrp: 6999, discount: 39, images: ['https://images.unsplash.com/photo-1541519481457-763224276691?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1Mjh8MHwxfHNlYXJjaHwzfHxmYXNoaW9uJTIwbW9kZWx8ZW58MHx8fGJsYWNrfDE3ODMxMzY1ODN8MA&ixlib=rb-4.1.0&q=85','https://images.unsplash.com/photo-1574015974293-817f0ebebb74?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1Mjh8MHwxfHNlYXJjaHxfHxmYXNoaW9uJTIwbW9kZWx8ZW58MHx8fGJsYWNrfDE3ODMxMzY1ODN8MA&ixlib=rb-4.1.0&q=85'], colors: ['Onyx','Champagne','Ice'], sizes: ['XS','S','M','L'], stock: 24, rating: 4.9, reviews: 412, tags: ['bestseller','sale'], description: 'Bias-cut mulberry silk slip. Cowl neck, adjustable straps, unfinished raw edge. Made in Bengaluru.', material: '100% Mulberry Silk', badge: 'LIMITED' },
   { id: 'p4', name: 'Void Cropped Bomber', slug: 'void-cropped-bomber', category: 'outerwear', gender: 'women', price: 5499, mrp: 8999, discount: 39, images: ['https://images.unsplash.com/photo-1613909671501-f9678ffc1d33?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA2ODl8MHwxfHNlYXJjaHwyfHxsdXh1cnklMjBmYXNoaW9ufGVufDB8fHxibGFja3wxNzgzMTM2NTY3fDA&ixlib=rb-4.1.0&q=85'], colors: ['Void Black','Steel'], sizes: ['XS','S','M','L','XL'], stock: 18, rating: 4.9, reviews: 89, tags: ['new','bestseller'], description: 'Cropped satin bomber with holographic zipper and elasticated hem. Statement outerwear.', material: 'Satin Polyester with Recycled Lining', badge: 'NEW' },
   { id: 'p5', name: 'Titan Tech Tee', slug: 'titan-tech-tee', category: 'tops', gender: 'men', price: 1899, mrp: 2999, discount: 37, images: ['https://images.unsplash.com/photo-1508216310976-c518daae0cdc?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjY2NzF8MHwxfHNlYXJjaHwyfHxzdHJlZXR3ZWFyfGVufDB8fHxibGFja3wxNzgzMTM2NTczfDA&ixlib=rb-4.1.0&q=85'], colors: ['Void Black','Chrome','Deep Blue'], sizes: ['S','M','L','XL','XXL'], stock: 120, rating: 4.6, reviews: 542, tags: ['bestseller'], description: 'Heavyweight 260 GSM combed cotton. Boxy fit, drop shoulder, ribbed collar with signature Velora tab.', material: '100% Combed Cotton', badge: 'BESTSELLER' },
   { id: 'p6', name: 'Astral Wide-Leg Trouser', slug: 'astral-wide-leg-trouser', category: 'bottoms', gender: 'women', price: 3299, mrp: 4999, discount: 34, images: ['https://images.pexels.com/photos/31466152/pexels-photo-31466152.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940'], colors: ['Jet','Slate'], sizes: ['XS','S','M','L','XL'], stock: 55, rating: 4.7, reviews: 203, tags: ['new'], description: 'Fluid wide-leg trousers with pleated front and satin waistband. High-rise architectural cut.', material: 'Viscose Twill', badge: 'NEW' },
@@ -37,7 +158,7 @@ async function seedIfEmpty() {
   }
 }
 
-function cleanDoc(doc) {
+export function cleanDoc(doc) {
   if (!doc) return doc
   const { _id, ...rest } = doc
   return rest
@@ -45,6 +166,7 @@ function cleanDoc(doc) {
 
 export async function GET(request, { params }) {
   try {
+    validateEnv()
     const database = await getDb()
     const url = new URL(request.url)
     const path = (await params).path || []
@@ -149,6 +271,7 @@ export async function GET(request, { params }) {
 
 export async function POST(request, { params }) {
   try {
+    validateEnv()
     const database = await getDb()
     const path = (await params).path || []
     const route = path[0] || ''
@@ -288,32 +411,27 @@ STYLE: Answer product/order questions crisply. If asked about specific styling, 
 Keep responses under 100 words unless the user asks for detail.`
 
       let reply = null
-      const key = process.env.EMERGENT_LLM_KEY
-      if (key) {
-        // Try multiple emergent gateway endpoints
-        const endpoints = [
-          { url: 'https://integrations.emergentagent.com/llm/openai/v1/chat/completions', model: 'gpt-4o-mini' },
-          { url: 'https://llm-gateway.emergentagent.com/v1/chat/completions', model: 'gpt-4o-mini' },
-          { url: 'https://api.emergentagent.com/llm/v1/chat/completions', model: 'gpt-4o-mini' },
+      try {
+        const ai = getGemini()
+        const contents = [
+          ...history.map(m => ({
+            role: m.role === 'assistant' ? 'model' : 'user',
+            parts: [{ text: m.content }]
+          })),
+          { role: 'user', parts: [{ text: message }] }
         ]
-        for (const ep of endpoints) {
-          try {
-            const res = await fetch(ep.url, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
-              body: JSON.stringify({
-                model: ep.model,
-                messages: [{ role: 'system', content: systemPrompt }, ...history.map(m => ({ role: m.role, content: m.content })), { role: 'user', content: message }],
-                temperature: 0.6, max_tokens: 300,
-              }),
-            })
-            if (res.ok) {
-              const data = await res.json()
-              reply = data?.choices?.[0]?.message?.content
-              if (reply) break
-            }
-          } catch (e) { /* try next */ }
-        }
+
+        const response = await ai.models.generateContent({
+          model: "gemini-3.5-flash",
+          contents: contents,
+          config: {
+            systemInstruction: systemPrompt,
+            temperature: 0.7,
+          }
+        })
+        reply = response.text
+      } catch (e) {
+        console.error("Gemini failed, falling back to rule-based:", e)
       }
 
       // Fallback: intelligent rule-based support
