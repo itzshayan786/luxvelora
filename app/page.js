@@ -1,7 +1,4 @@
 'use client'
-<div style={{position:'fixed',top:0,left:0,zIndex:99999,background:'red',color:'white',padding:'8px'}}>
-TEST BUILD 12345
-</div>
 import { loadRazorpay, openRazorpayCheckout } from "@/lib/razorpay";
 import { useState, useEffect, useMemo, useRef, createContext, useContext } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -19,7 +16,9 @@ import {
   Instagram, Twitter, Facebook, Youtube, Filter, Check, Mic, Award, Clock, Gift, Wallet, LogOut, ArrowUpRight,
   MessageCircle, Send, Bot, HelpCircle, Phone, Mail, Loader2, Truck as TruckIcon
 } from 'lucide-react'
-
+<div style={{position:'fixed',top:0,left:0,zIndex:99999,background:'red',color:'white',padding:'8px'}}>
+TEST BUILD 12345
+</div>
 const ShopCtx = createContext(null)
 const useShop = () => useContext(ShopCtx)
 const fmt = (n) => '₹' + Number(n).toLocaleString('en-IN')
