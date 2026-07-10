@@ -1,6 +1,16 @@
 import { NextResponse } from 'next/server'
 import { v4 as uuidv4 } from 'uuid'
 import { getDb, getGemini, validateEnv } from '@/lib/server-init'
+import { cookies } from 'next/headers'
+import bcryptjs from 'bcryptjs'
+import jwt from 'jsonwebtoken'
+import {
+  sendEmail,
+  getWelcomeEmailHtml,
+  getVerificationEmailHtml,
+  getForgotPasswordOtpEmailHtml,
+  getPasswordChangedEmailHtml
+} from '@/lib/email'
 
 export const dynamic = "force-dynamic";
 
@@ -201,6 +211,35 @@ export async function GET(request, { params }) {
       return NextResponse.json({ status: 'ok', brand: 'Velora' })
     }
 
+    if (route === 'session-user') {
+      const cookieStore = await cookies()
+      const token = cookieStore.get('velora_session')?.value
+      if (!token) return NextResponse.json({ user: null })
+
+      try {
+        const decoded = jwt.verify(token, process.env.AUTH_SECRET || process.env.JWT_SECRET || 'velora-atelier-secret-key-2026')
+        const user = await database.collection('users').findOne({ id: decoded.userId })
+        if (!user || (user.sessionVersion || 1) !== decoded.sessionVersion) {
+          cookieStore.delete('velora_session')
+          return NextResponse.json({ user: null })
+        }
+        return NextResponse.json({
+          user: {
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            rewards: user.rewards || 0,
+            wallet: user.wallet || 0,
+            phone: user.phone || '',
+            dob: user.dob || ''
+          }
+        })
+      } catch (err) {
+        cookieStore.delete('velora_session')
+        return NextResponse.json({ user: null })
+      }
+    }
+
     if (route === 'products') {
       await seedIfEmpty()
       const gender = url.searchParams.get('gender')
@@ -353,24 +392,323 @@ export async function POST(request, { params }) {
     if (route === 'register') {
       const { email, password, name } = body
       if (!email || !password) return NextResponse.json({ error: 'Email and password required' }, { status: 400 })
+      
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) return NextResponse.json({ error: 'Invalid email address' }, { status: 400 })
+      if (password.length < 6) return NextResponse.json({ error: 'Password must be at least 6 characters' }, { status: 400 })
+
       const existing = await database.collection('users').findOne({ email })
       if (existing) return NextResponse.json({ error: 'Email already registered' }, { status: 400 })
-      const user = { id: uuidv4(), email, password, name: name || email.split('@')[0], createdAt: new Date().toISOString(), rewards: 100, wallet: 0 }
+
+      const hashedPassword = bcryptjs.hashSync(password, 10)
+      const otpCode = Math.floor(100000 + Math.random() * 900000).toString()
+
+      const user = {
+        id: uuidv4(),
+        email,
+        password: hashedPassword,
+        name: name || email.split('@')[0],
+        createdAt: new Date().toISOString(),
+        rewards: 100,
+        wallet: 0,
+        isVerified: false,
+        verificationOtp: {
+          code: otpCode,
+          expiresAt: Date.now() + 24 * 60 * 60 * 1000, // 24 hours
+          lastSentAt: Date.now()
+        },
+        sessionVersion: 1,
+        loginAttempts: 0,
+        lockoutUntil: null,
+        otp: null
+      }
+
       await database.collection('users').insertOne(user)
-      return NextResponse.json({ user: { id: user.id, email: user.email, name: user.name, rewards: user.rewards, wallet: user.wallet } })
+
+      // Send verification email
+      const verifyHtml = getVerificationEmailHtml(user.name, otpCode)
+      await sendEmail({
+        to: email,
+        subject: 'Verify Your VELORA Account',
+        html: verifyHtml,
+        text: `Dear Patron,\n\nPlease verify your account with code: ${otpCode}\n\nWarm regards,\nVELORA Security`
+      })
+
+      return NextResponse.json({
+        success: true,
+        message: 'Verification code sent to your email. Please verify your email to activate your account.',
+        email
+      })
+    }
+
+    if (route === 'verify-email') {
+      const { email, code } = body
+      if (!email || !code) return NextResponse.json({ error: 'Email and verification code are required' }, { status: 400 })
+
+      const user = await database.collection('users').findOne({ email })
+      if (!user) return NextResponse.json({ error: 'User not found' }, { status: 404 })
+      if (user.isVerified) return NextResponse.json({ error: 'Account already verified' }, { status: 400 })
+
+      if (!user.verificationOtp || user.verificationOtp.code !== code || user.verificationOtp.expiresAt < Date.now()) {
+        return NextResponse.json({ error: 'Invalid or expired verification code' }, { status: 400 })
+      }
+
+      await database.collection('users').updateOne(
+        { email },
+        {
+          $set: { isVerified: true, verificationOtp: null }
+        }
+      )
+
+      // Send Welcome email
+      const welcomeHtml = getWelcomeEmailHtml(user.name)
+      await sendEmail({
+        to: email,
+        subject: 'Welcome to VELORA',
+        html: welcomeHtml,
+        text: `Dear ${user.name},\n\nWelcome to VELORA. Your account has been verified successfully.\n\nWarm regards,\nVELORA Concierge`
+      })
+
+      return NextResponse.json({ success: true, message: 'Account activated successfully!' })
+    }
+
+    if (route === 'resend-verification') {
+      const { email } = body
+      if (!email) return NextResponse.json({ error: 'Email required' }, { status: 400 })
+
+      const user = await database.collection('users').findOne({ email })
+      if (!user) return NextResponse.json({ error: 'User not found' }, { status: 404 })
+      if (user.isVerified) return NextResponse.json({ error: 'Account already verified' }, { status: 400 })
+
+      // Cooldown check (60 seconds)
+      if (user.verificationOtp && Date.now() - user.verificationOtp.lastSentAt < 60000) {
+        const waitSecs = Math.ceil((60000 - (Date.now() - user.verificationOtp.lastSentAt)) / 1000)
+        return NextResponse.json({ error: `Please wait ${waitSecs} seconds before requesting another code.` }, { status: 429 })
+      }
+
+      const otpCode = Math.floor(100000 + Math.random() * 900000).toString()
+      await database.collection('users').updateOne(
+        { email },
+        {
+          $set: {
+            'verificationOtp.code': otpCode,
+            'verificationOtp.expiresAt': Date.now() + 24 * 60 * 60 * 1000,
+            'verificationOtp.lastSentAt': Date.now()
+          }
+        }
+      )
+
+      const verifyHtml = getVerificationEmailHtml(user.name, otpCode)
+      await sendEmail({
+        to: email,
+        subject: 'Verify Your VELORA Account',
+        html: verifyHtml,
+        text: `Dear Patron,\n\nPlease verify your account with code: ${otpCode}\n\nWarm regards,\nVELORA Security`
+      })
+
+      return NextResponse.json({ success: true, message: 'Verification code re-dispatched.' })
     }
 
     if (route === 'login') {
-      const { email, password } = body
-      const user = await database.collection('users').findOne({ email, password })
+      const { email, password, rememberMe } = body
+      if (!email || !password) return NextResponse.json({ error: 'Email and password required' }, { status: 400 })
+
+      const user = await database.collection('users').findOne({ email })
       if (!user) return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 })
-      return NextResponse.json({ user: { id: user.id, email: user.email, name: user.name, rewards: user.rewards || 0, wallet: user.wallet || 0 } })
+
+      // Lockout check
+      if (user.lockoutUntil && new Date(user.lockoutUntil) > new Date()) {
+        const waitMins = Math.ceil((new Date(user.lockoutUntil).getTime() - Date.now()) / 60000)
+        return NextResponse.json({ error: `Account locked due to consecutive failures. Try again in ${waitMins} minutes.` }, { status: 423 })
+      }
+
+      const passwordMatch = bcryptjs.compareSync(password, user.password)
+      if (!passwordMatch) {
+        const attempts = (user.loginAttempts || 0) + 1
+        const updateData = { loginAttempts: attempts }
+        if (attempts >= 5) {
+          updateData.lockoutUntil = new Date(Date.now() + 15 * 60 * 1000).toISOString() // 15 mins lockout
+          await database.collection('users').updateOne({ email }, { $set: updateData })
+          return NextResponse.json({ error: 'Too many failed login attempts. Account temporarily locked for 15 minutes.' }, { status: 423 })
+        }
+        await database.collection('users').updateOne({ email }, { $set: updateData })
+        return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 })
+      }
+
+      // Reset lockout/attempts
+      await database.collection('users').updateOne({ email }, { $set: { loginAttempts: 0, lockoutUntil: null } })
+
+      // Check verification
+      if (!user.isVerified) {
+        return NextResponse.json({ error: 'EMAIL_NOT_VERIFIED', email: user.email }, { status: 403 })
+      }
+
+      // Generate JWT
+      const sessionVersion = user.sessionVersion || 1
+      const token = jwt.sign(
+        { userId: user.id, email: user.email, sessionVersion },
+        process.env.AUTH_SECRET || process.env.JWT_SECRET || 'velora-atelier-secret-key-2026',
+        { expiresIn: rememberMe ? '30d' : '1d' }
+      )
+
+      // Set cookie
+      const cookieStore = await cookies()
+      cookieStore.set('velora_session', token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        path: '/',
+        maxAge: rememberMe ? 30 * 24 * 60 * 60 : 24 * 60 * 60 // 30 days or 1 day
+      })
+
+      return NextResponse.json({
+        user: {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          rewards: user.rewards || 0,
+          wallet: user.wallet || 0,
+          phone: user.phone || '',
+          dob: user.dob || ''
+        }
+      })
+    }
+
+    if (route === 'logout') {
+      const cookieStore = await cookies()
+      cookieStore.delete('velora_session')
+      return NextResponse.json({ success: true })
+    }
+
+    if (route === 'logout-all-devices') {
+      const cookieStore = await cookies()
+      const token = cookieStore.get('velora_session')?.value
+      if (!token) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
+
+      try {
+        const decoded = jwt.verify(token, process.env.AUTH_SECRET || process.env.JWT_SECRET || 'velora-atelier-secret-key-2026')
+        await database.collection('users').updateOne(
+          { id: decoded.userId },
+          { $inc: { sessionVersion: 1 } }
+        )
+        cookieStore.delete('velora_session')
+        return NextResponse.json({ success: true, message: 'Successfully logged out from all devices.' })
+      } catch (err) {
+        cookieStore.delete('velora_session')
+        return NextResponse.json({ success: true })
+      }
+    }
+
+    if (route === 'forgot-password-request') {
+      const { email } = body
+      if (!email) return NextResponse.json({ error: 'Email address is required' }, { status: 400 })
+
+      const user = await database.collection('users').findOne({ email })
+      if (!user) {
+        return NextResponse.json({ error: 'Client email address not found in our registry.' }, { status: 404 })
+      }
+
+      // Cooldown rate limit (60 seconds)
+      if (user.otp && Date.now() - (user.otp.lastRequestedAt || 0) < 60000) {
+        const waitSecs = Math.ceil((60000 - (Date.now() - user.otp.lastRequestedAt)) / 1000)
+        return NextResponse.json({ error: `Please wait ${waitSecs} seconds before requesting another code.` }, { status: 429 })
+      }
+
+      const otpCode = Math.floor(100000 + Math.random() * 900000).toString()
+
+      await database.collection('users').updateOne(
+        { email },
+        {
+          $set: {
+            otp: {
+              code: otpCode,
+              expiresAt: Date.now() + 10 * 60 * 1000, // 10 minutes
+              lastRequestedAt: Date.now(),
+              attempts: 0,
+              verified: false
+            }
+          }
+        }
+      )
+
+      const otpEmailHtml = getForgotPasswordOtpEmailHtml(otpCode)
+      await sendEmail({
+        to: email,
+        subject: 'VELORA • Password Reset Code',
+        html: otpEmailHtml,
+        text: `Your verification code is:\n\n${otpCode}\n\nThis code expires in 10 minutes.\n\nIf you did not request this, simply ignore this email.`
+      })
+
+      return NextResponse.json({ success: true, message: 'Premium security reset OTP code has been dispatched to your email.' })
+    }
+
+    if (route === 'forgot-password-verify') {
+      const { email, code } = body
+      if (!email || !code) return NextResponse.json({ error: 'Email and security code are required' }, { status: 400 })
+
+      const user = await database.collection('users').findOne({ email })
+      if (!user || !user.otp) return NextResponse.json({ error: 'Invalid or expired session request.' }, { status: 400 })
+
+      if (user.otp.expiresAt < Date.now()) {
+        return NextResponse.json({ error: 'Verification code has expired. Please request a new one.' }, { status: 400 })
+      }
+
+      if (user.otp.code !== code) {
+        const attempts = (user.otp.attempts || 0) + 1
+        if (attempts >= 5) {
+          await database.collection('users').updateOne({ email }, { $set: { otp: null } })
+          return NextResponse.json({ error: 'Too many invalid attempts. Please request a new code.' }, { status: 400 })
+        }
+        await database.collection('users').updateOne({ email }, { $set: { 'otp.attempts': attempts } })
+        return NextResponse.json({ error: 'Invalid verification code.' }, { status: 400 })
+      }
+
+      await database.collection('users').updateOne(
+        { email },
+        {
+          $set: { 'otp.verified': true }
+        }
+      )
+
+      return NextResponse.json({ success: true, message: 'Identity verified. You may now reset your password.' })
+    }
+
+    if (route === 'forgot-password-reset') {
+      const { email, password } = body
+      if (!email || !password) return NextResponse.json({ error: 'Email and new password are required' }, { status: 400 })
+      if (password.length < 6) return NextResponse.json({ error: 'Password must be at least 6 characters' }, { status: 400 })
+
+      const user = await database.collection('users').findOne({ email })
+      if (!user || !user.otp || !user.otp.verified) {
+        return NextResponse.json({ error: 'Verification required.' }, { status: 400 })
+      }
+
+      const hashedPassword = bcryptjs.hashSync(password, 10)
+
+      await database.collection('users').updateOne(
+        { email },
+        {
+          $set: { password: hashedPassword, otp: null },
+          $inc: { sessionVersion: 1 } // Invalidate all previous session devices
+        }
+      )
+
+      const changedHtml = getPasswordChangedEmailHtml(user.name)
+      await sendEmail({
+        to: email,
+        subject: 'VELORA • Security Password Updated',
+        html: changedHtml,
+        text: `Dear ${user.name},\n\nYour VELORA account password has been updated successfully.\n\nWarm regards,\nVELORA Security`
+      })
+
+      return NextResponse.json({ success: true, message: 'Password updated successfully!' })
     }
 
     if (route === 'reset-password') {
       const { email, password } = body
       if (!email || !password) return NextResponse.json({ error: 'Email and password required' }, { status: 400 })
-      const result = await database.collection('users').updateOne({ email }, { $set: { password } })
+      const hashedPassword = bcryptjs.hashSync(password, 10)
+      const result = await database.collection('users').updateOne({ email }, { $set: { password: hashedPassword }, $inc: { sessionVersion: 1 } })
       if (result.matchedCount === 0) return NextResponse.json({ error: 'User not found' }, { status: 404 })
       return NextResponse.json({ ok: true })
     }
@@ -379,7 +717,13 @@ export async function POST(request, { params }) {
       const { email, name, phone, dob, newPassword } = body
       if (!email) return NextResponse.json({ error: 'Email required' }, { status: 400 })
       const updateFields = { name, phone, dob }
-      if (newPassword) updateFields.password = newPassword
+      if (newPassword) {
+        if (newPassword.length < 6) return NextResponse.json({ error: 'Password must be at least 6 characters' }, { status: 400 })
+        updateFields.password = bcryptjs.hashSync(newPassword, 10)
+        // Correct sessionVersion structure to properly invalidate on profile update
+        const user = await database.collection('users').findOne({ email })
+        updateFields.sessionVersion = (user?.sessionVersion || 1) + 1
+      }
       const result = await database.collection('users').updateOne({ email }, { $set: updateFields })
       if (result.matchedCount === 0) return NextResponse.json({ error: 'User not found' }, { status: 404 })
       return NextResponse.json({ ok: true })

@@ -109,11 +109,36 @@ export default function PremiumAccount({ useShop }) {
     }
   }, [user])
 
-  const logout = () => {
+  const logout = async () => {
+    try {
+      await fetch('/api/logout', { method: 'POST' })
+    } catch (e) {
+      console.warn("Logout endpoint error:", e)
+    }
     localStorage.removeItem('velora_user')
     setUser(null)
     setRoute({ view: 'home' })
     toast.success('Successfully logged out from your secure session')
+  }
+
+  const handleLogoutAllDevices = async () => {
+    try {
+      const response = await fetch('/api/logout-all-devices', {
+        method: 'POST'
+      }).then(r => r.json())
+
+      if (response.error) {
+        toast.error(response.error)
+        return
+      }
+
+      toast.success("Successfully terminated all active sessions globally.")
+      localStorage.removeItem('velora_user')
+      setUser(null)
+      setRoute({ view: 'home' })
+    } catch (err) {
+      toast.error("Failed to terminate other sessions. Please try again.")
+    }
   }
 
   // Profile Save
@@ -589,6 +614,24 @@ export default function PremiumAccount({ useShop }) {
                         </div>
                       </div>
                     </div>
+
+                    <div className="h-px bg-neutral-100 my-6" />
+
+                    <div className="space-y-4">
+                      <h3 className="text-xs tracking-wider uppercase font-semibold text-neutral-900">DEVICE SECURITY CONSOLE</h3>
+                      <p className="text-xs text-neutral-500 max-w-xl">
+                        Terminate all active sessions globally on other devices if you logged in from a public computer or suspect unauthorized access.
+                      </p>
+                      <Button
+                        type="button"
+                        onClick={handleLogoutAllDevices}
+                        className="rounded-none border border-neutral-300 bg-transparent text-neutral-950 hover:bg-neutral-50 hover:border-neutral-900 text-xs tracking-[0.2em] uppercase font-semibold h-11 px-6 transition-all"
+                      >
+                        LOGOUT FROM ALL DEVICES
+                      </Button>
+                    </div>
+
+                    <div className="h-px bg-neutral-100 my-6" />
 
                     <Button
                       type="submit"

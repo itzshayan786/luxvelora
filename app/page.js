@@ -2469,6 +2469,24 @@ const App = () => {
       const savedUser = JSON.parse(localStorage.getItem('velora_user') || 'null')
       const savedRV = JSON.parse(localStorage.getItem('velora_recently_viewed') || '[]')
       setCart(savedCart); setWishlist(savedWL); setUser(savedUser); setRecentlyViewed(savedRV)
+
+      // Automatic secure session restoration and validation on page load
+      const verifySession = async () => {
+        try {
+          const res = await fetch('/api/session-user')
+          const data = await res.json()
+          if (data && data.user) {
+            setUser(data.user)
+            localStorage.setItem('velora_user', JSON.stringify(data.user))
+          } else {
+            setUser(null)
+            localStorage.removeItem('velora_user')
+          }
+        } catch (err) {
+          console.warn("Session auto-verify exception:", err)
+        }
+      }
+      verifySession()
     } catch (e) {}
   }, [])
  

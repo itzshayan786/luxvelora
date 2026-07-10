@@ -1,19 +1,18 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
 import { Mail, Lock, User, ShieldCheck, ArrowRight, Eye, EyeOff, Sparkles, Key, Check } from 'lucide-react'
 
-// Mock verification code for Forgot Password
-const GENERATED_OTP = '882046'
-
 export default function PremiumAuth({ useShop }) {
   const { setUser, setRoute, cart, addToCart } = useShop()
-  const [mode, setMode] = useState('login') // 'login' | 'register' | 'forgot'
+  const [mode, setMode] = useState('login') // 'login' | 'register' | 'forgot' | 'verify-email'
   const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
+  const [rememberMe, setRememberMe] = useState(true)
+  const [resendCooldown, setResendCooldown] = useState(0)
 
   // Forgot password phases: 'email' | 'otp' | 'reset'
   const [forgotPhase, setForgotPhase] = useState('email')
@@ -64,6 +63,13 @@ export default function PremiumAuth({ useShop }) {
     }
   }
 
+  useEffect(() => {
+    if (resendCooldown > 0) {
+      const timer = setTimeout(() => setResendCooldown(prev => prev - 1), 1000)
+      return () => clearTimeout(timer)
+    }
+  }, [resendCooldown])
+
   const submit = async (e) => {
     e.preventDefault()
     if (!f.email || !f.password) {
@@ -74,7 +80,7 @@ export default function PremiumAuth({ useShop }) {
     try {
       const endpoint = mode === 'login' ? 'login' : 'register'
       const payload = mode === 'login' 
-        ? { email: f.email, password: f.password }
+        ? { email: f.email, password: f.password, rememberMe }
         : { email: f.email, password: f.password, name: f.name }
 
       if (mode === 'register' && !f.terms) {
@@ -89,7 +95,22 @@ export default function PremiumAuth({ useShop }) {
       }).then(x => x.json())
 
       if (r.error) {
-        toast.error(r.error)
+        if (r.error === 'EMAIL_NOT_VERIFIED') {
+          toast.info('Email verification is required before login.')
+          setMode('verify-email')
+          setOtpVal(['', '', '', '', '', ''])
+        } else {
+          toast.error(r.error)
+        }
+        setLoading(false)
+        return
+      }
+
+      if (mode === 'register') {
+        toast.success(r.message || 'Registration successful! Verification code sent.')
+        setMode('verify-email')
+        setOtpVal(['', '', '', '', '', ''])
+        setResendCooldown(60)
         setLoading(false)
         return
       }
@@ -99,11 +120,66 @@ export default function PremiumAuth({ useShop }) {
 
       localStorage.setItem('velora_user', JSON.stringify(r.user))
       setUser(r.user)
-      toast.success(`Welcome ${mode === 'login' ? 'back' : 'to Velora'}, ${r.user.name}`)
+      toast.success(`Welcome back, ${r.user.name}`)
       setRoute({ view: 'account' })
     } catch (err) {
       toast.error('An unexpected authentication error occurred')
       console.error(err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Handle registration verification OTP submit
+  const handleRegVerifySubmit = async (e) => {
+    e.preventDefault()
+    const enteredCode = otpVal.join('')
+    if (enteredCode.length < 6) return toast.error('Please enter the full 6-digit verification code')
+
+    setLoading(true)
+    try {
+      const r = await fetch('/api/verify-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: f.email, code: enteredCode })
+      }).then(x => x.json())
+
+      if (r.error) {
+        toast.error(r.error)
+        return
+      }
+
+      toast.success('Account activated successfully! You may now sign in.')
+      setMode('login')
+      setOtpVal(['', '', '', '', '', ''])
+      setF(prev => ({ ...prev, password: '' }))
+    } catch (err) {
+      toast.error('Verification failed. Please try again.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Resend registration verification OTP
+  const handleResendRegVerify = async () => {
+    if (resendCooldown > 0) return
+    setLoading(true)
+    try {
+      const r = await fetch('/api/resend-verification', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: f.email })
+      }).then(x => x.json())
+
+      if (r.error) {
+        toast.error(r.error)
+        return
+      }
+
+      setResendCooldown(60)
+      toast.success('A new verification code has been sent to your email.')
+    } catch (err) {
+      toast.error('Failed to resend verification code.')
     } finally {
       setLoading(false)
     }
@@ -115,24 +191,77 @@ export default function PremiumAuth({ useShop }) {
     if (!f.email) return toast.error('Please enter your email address')
     setLoading(true)
     
-    // Simulate sending email API
-    setTimeout(() => {
-      setLoading(false)
+    try {
+      const r = await fetch('/api/forgot-password-request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: f.email })
+      }).then(x => x.json())
+
+      if (r.error) {
+        toast.error(r.error)
+        return
+      }
+
       setForgotPhase('otp')
-      toast.success(`Security code sent to ${f.email}. For testing, use code: ${GENERATED_OTP}`)
-    }, 1200)
+      setOtpVal(['', '', '', '', '', ''])
+      setResendCooldown(60)
+      toast.success('A premium security reset OTP has been dispatched to your email.')
+    } catch (err) {
+      toast.error('Failed to initiate forgot password request.')
+    } finally {
+      setLoading(false)
+    }
   }
 
-  const handleOtpSubmit = (e) => {
+  const handleForgotOtpSubmit = async (e) => {
     e.preventDefault()
     const enteredCode = otpVal.join('')
     if (enteredCode.length < 6) return toast.error('Please enter the full 6-digit verification code')
     
-    if (enteredCode === GENERATED_OTP) {
-      toast.success('Identity verified successfully')
+    setLoading(true)
+    try {
+      const r = await fetch('/api/forgot-password-verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: f.email, code: enteredCode })
+      }).then(x => x.json())
+
+      if (r.error) {
+        toast.error(r.error)
+        return
+      }
+
+      toast.success('Security identity verified successfully')
       setForgotPhase('reset')
-    } else {
-      toast.error('Invalid security code. Please check your email or try again.')
+    } catch (err) {
+      toast.error('OTP verification failed.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleResendForgotOtp = async () => {
+    if (resendCooldown > 0) return
+    setLoading(true)
+    try {
+      const r = await fetch('/api/forgot-password-request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: f.email })
+      }).then(x => x.json())
+
+      if (r.error) {
+        toast.error(r.error)
+        return
+      }
+
+      setResendCooldown(60)
+      toast.success('Security reset code re-dispatched to your email.')
+    } catch (err) {
+      toast.error('Failed to resend verification code.')
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -144,8 +273,7 @@ export default function PremiumAuth({ useShop }) {
 
     setLoading(true)
     try {
-      // Fetch reset password route
-      const r = await fetch('/api/reset-password', {
+      const r = await fetch('/api/forgot-password-reset', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: f.email, password: newPassword })
@@ -160,6 +288,8 @@ export default function PremiumAuth({ useShop }) {
       setMode('login')
       setForgotPhase('email')
       setF({ ...f, password: '' })
+      setNewPassword('')
+      setConfirmPassword('')
     } catch (err) {
       toast.error('Failed to reset password. Please try again.')
     } finally {
@@ -175,13 +305,15 @@ export default function PremiumAuth({ useShop }) {
 
     // Auto focus next input
     if (value && index < 5) {
-      document.getElementById(`otp-${index + 1}`).focus()
+      const nextInput = document.getElementById(`otp-${index + 1}`)
+      if (nextInput) nextInput.focus()
     }
   }
 
   const handleOtpKeyDown = (index, e) => {
     if (e.key === 'Backspace' && !otpVal[index] && index > 0) {
-      document.getElementById(`otp-${index - 1}`).focus()
+      const prevInput = document.getElementById(`otp-${index - 1}`)
+      if (prevInput) prevInput.focus()
     }
   }
 
@@ -248,7 +380,12 @@ export default function PremiumAuth({ useShop }) {
 
               <div className="flex items-center justify-between text-[11px] tracking-wide font-sans mt-2">
                 <label className="flex items-center gap-2 text-neutral-500 cursor-pointer select-none">
-                  <input type="checkbox" className="accent-neutral-900 rounded-none w-3.5 h-3.5" />
+                  <input
+                    type="checkbox"
+                    checked={rememberMe}
+                    onChange={e => setRememberMe(e.target.checked)}
+                    className="accent-neutral-900 rounded-none w-3.5 h-3.5"
+                  />
                   <span>REMEMBER ME</span>
                 </label>
                 <button
@@ -416,7 +553,7 @@ export default function PremiumAuth({ useShop }) {
               )}
 
               {forgotPhase === 'otp' && (
-                <form onSubmit={handleOtpSubmit} className="space-y-6">
+                <form onSubmit={handleForgotOtpSubmit} className="space-y-6">
                   <p className="text-xs text-neutral-500 text-center leading-relaxed tracking-wide">
                     A secure 6-digit verification code has been dispatched to <b className="text-neutral-950">{f.email}</b>. Please input it below.
                   </p>
@@ -446,12 +583,11 @@ export default function PremiumAuth({ useShop }) {
                   <div className="text-center">
                     <button
                       type="button"
-                      onClick={() => {
-                        toast.success(`OTP re-dispatched. For testing, use: ${GENERATED_OTP}`)
-                      }}
-                      className="text-neutral-400 hover:text-neutral-950 text-xs font-semibold tracking-wider uppercase underline underline-offset-4"
+                      disabled={resendCooldown > 0}
+                      onClick={handleResendForgotOtp}
+                      className="text-neutral-400 hover:text-neutral-950 disabled:opacity-50 text-xs font-semibold tracking-wider uppercase underline underline-offset-4 transition-all"
                     >
-                      RESEND OTP CODE
+                      {resendCooldown > 0 ? `RESEND OTP IN ${resendCooldown}S` : 'RESEND OTP CODE'}
                     </button>
                   </div>
                 </form>
@@ -508,6 +644,74 @@ export default function PremiumAuth({ useShop }) {
                     setMode('login')
                     setForgotPhase('email')
                   }}
+                  className="text-neutral-950 hover:underline underline-offset-4 font-semibold"
+                >
+                  BACK TO SIGN IN
+                </button>
+              </div>
+            </motion.div>
+          )}
+
+          {mode === 'verify-email' && (
+            <motion.div
+              key="verify-email"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.3 }}
+              className="space-y-5"
+            >
+              <div className="text-center mb-6">
+                <h2 className="text-sm font-sans tracking-[0.3em] text-neutral-900 uppercase font-medium">
+                  EMAIL VERIFICATION
+                </h2>
+                <div className="w-8 h-[1px] bg-neutral-900 mx-auto mt-2"></div>
+              </div>
+
+              <form onSubmit={handleRegVerifySubmit} className="space-y-6">
+                <p className="text-xs text-neutral-500 text-center leading-relaxed tracking-wide">
+                  A secure 6-digit activation code has been dispatched to <b className="text-neutral-950">{f.email || 'your email'}</b>. Please input it below.
+                </p>
+
+                <div className="flex justify-center gap-2 md:gap-3 my-4">
+                  {otpVal.map((digit, idx) => (
+                    <input
+                      key={idx}
+                      id={`otp-${idx}`}
+                      type="text"
+                      maxLength="1"
+                      value={digit}
+                      onChange={e => handleOtpChange(idx, e.target.value)}
+                      onKeyDown={e => handleOtpKeyDown(idx, e)}
+                      className="w-12 h-14 text-center text-xl font-display font-semibold bg-neutral-50 border border-neutral-200 focus:border-neutral-950 focus:bg-white outline-none rounded-none transition"
+                    />
+                  ))}
+                </div>
+
+                <Button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full h-12 rounded-none bg-neutral-950 text-white hover:bg-neutral-800 text-xs tracking-[0.2em] font-medium transition-all"
+                >
+                  {loading ? 'VERIFYING...' : 'VERIFY & ACTIVATE'}
+                </Button>
+
+                <div className="text-center">
+                  <button
+                    type="button"
+                    disabled={resendCooldown > 0}
+                    onClick={handleResendRegVerify}
+                    className="text-neutral-400 hover:text-neutral-950 disabled:opacity-50 text-xs font-semibold tracking-wider uppercase underline underline-offset-4 transition-all"
+                  >
+                    {resendCooldown > 0 ? `RESEND CODE IN ${resendCooldown}S` : 'RESEND CODE'}
+                  </button>
+                </div>
+              </form>
+
+              <div className="text-center text-xs tracking-wider text-neutral-400 mt-6 pt-2 border-t border-neutral-100">
+                <button
+                  type="button"
+                  onClick={() => setMode('login')}
                   className="text-neutral-950 hover:underline underline-offset-4 font-semibold"
                 >
                   BACK TO SIGN IN
