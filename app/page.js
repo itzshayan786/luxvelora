@@ -2,6 +2,9 @@
 import { loadRazorpay, openRazorpayCheckout } from "@/lib/razorpay";
 import PremiumAuth from "@/components/PremiumAuth";
 import PremiumAccount from "@/components/PremiumAccount";
+import PremiumSizeGuide from "@/components/PremiumSizeGuide";
+import LuxuryShowcase from "@/components/LuxuryShowcase";
+import MiniCart from "@/components/MiniCart";
 import { useState, useEffect, useMemo, useRef, createContext, useContext } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Button } from '@/components/ui/button'
@@ -16,12 +19,66 @@ import {
   Search, ShoppingBag, Heart, User, Menu, X, ChevronRight, ChevronLeft, Star, Truck, Shield,
   RotateCcw, CreditCard, Sparkles, Zap, Package, MapPin, ArrowRight, Plus, Minus, Trash2,
   Instagram, Twitter, Facebook, Youtube, Filter, Check, Mic, Award, Clock, Gift, Wallet, LogOut, ArrowUpRight,
-  MessageCircle, Send, Bot, HelpCircle, Phone, Mail, Loader2, Truck as TruckIcon
+  MessageCircle, Send, Bot, HelpCircle, Phone, Mail, Loader2, Truck as TruckIcon, Camera, Upload, RefreshCw
 } from 'lucide-react'
 
-const ShopCtx = createContext(null)
-const useShop = () => useContext(ShopCtx)
+export const ShopCtx = createContext(null)
+export const useShop = () => useContext(ShopCtx)
 const fmt = (n) => '₹' + Number(n).toLocaleString('en-IN')
+
+const CinematicLoader = ({ onComplete }) => {
+  useEffect(() => {
+    const timer = setTimeout(onComplete, 1500)
+    return () => clearTimeout(timer)
+  }, [onComplete])
+
+  return (
+    <motion.div
+      initial={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.4, ease: 'easeInOut' }}
+      className="fixed inset-0 z-[10000] flex items-center justify-center bg-black"
+    >
+      <motion.h1
+        initial={{ opacity: 0, letterSpacing: '0.25em' }}
+        animate={{ opacity: 1, letterSpacing: '0.4em' }}
+        transition={{ duration: 1.2, ease: [0.16, 1, 0.3, 1] }}
+        className="text-4xl md:text-6xl font-sans font-bold text-white uppercase select-none tracking-widest"
+      >
+        VELORA
+      </motion.h1>
+    </motion.div>
+  )
+}
+
+const MagneticButton = ({ children, className, onClick, id }) => {
+  return (
+    <motion.button
+      id={id}
+      onClick={onClick}
+      whileHover={{ scale: 1.02, y: -1 }}
+      transition={{ duration: 0.25, ease: 'easeOut' }}
+      className={`${className} shadow-sm hover:shadow-md transition-shadow`}
+    >
+      {children}
+    </motion.button>
+  )
+}
+
+const TextMaskReveal = ({ text, className }) => {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 15 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 1, ease: [0.16, 1, 0.3, 1] }}
+      className={className}
+    >
+      {text.split('\n').map((line, i) => (
+        <span key={i} className="block">{line}</span>
+      ))}
+    </motion.div>
+  )
+}
 
 const VeloraLogo = ({ size = 'md' }) => {
   const dims = { sm: 'text-xl', md: 'text-2xl', lg: 'text-4xl', xl: 'text-6xl' }[size]
@@ -29,20 +86,20 @@ const VeloraLogo = ({ size = 'md' }) => {
     <div className={`font-display font-bold ${dims} tracking-tight flex items-center gap-1.5`}>
       <span className="relative">
         <span className="silver-text">V</span>
-        <span className="absolute -top-1 -right-1 w-1.5 h-1.5 rounded-full bg-blue-500 pulse-glow" />
+        <span className="absolute -top-1 -right-1 w-1.5 h-1.5 rounded-full bg-amber-500 pulse-glow" />
       </span>
       <span className="text-neutral-900">ELORA</span>
     </div>
   )
 }
 
-const TOP_MARQUEE = ['FREE SHIPPING ABOVE ₹1499', 'COD AVAILABLE PAN INDIA', 'EASY 15-DAY RETURNS', 'FLAT 20% OFF WITH CODE FUTURE20', 'NEW COLLECTION DROPPED']
+const TOP_MARQUEE = ['FREE DELIVERY ON ORDERS ABOVE ₹1499', 'CASH ON DELIVERY (COD) AVAILABLE', 'EASY 15-DAY RETURNS & REPLACEMENTS', 'FLAT 20% OFF WITH CODE VELORA20', 'NEW FESTIVE ARRIVALS ARE LIVE']
 const TopBar = () => (
   <div className="bg-neutral-950 border-b border-white/10 py-2 overflow-hidden">
     <div className="flex marquee whitespace-nowrap">
       {[...TOP_MARQUEE, ...TOP_MARQUEE, ...TOP_MARQUEE].map((t, i) => (
         <span key={i} className="mx-8 text-[11px] tracking-[0.3em] text-white/70 font-medium flex items-center gap-8">
-          <span>{t}</span><Sparkles className="w-3 h-3 text-blue-400" />
+          <span>{t}</span><Sparkles className="w-3 h-3 text-amber-500" />
         </span>
       ))}
     </div>
@@ -50,7 +107,7 @@ const TopBar = () => (
 )
 
 const Header = () => {
-  const { setRoute, cart, wishlist, user, setUser, setSearchOpen, setMobileNavOpen, mobileNavOpen, isOffline } = useShop()
+  const { setRoute, cart, wishlist, user, setUser, setSearchOpen, setMobileNavOpen, mobileNavOpen, isOffline, setCartOpen } = useShop()
   const [scrolled, setScrolled] = useState(false)
   const [showDropdown, setShowDropdown] = useState(false)
   useEffect(() => {
@@ -76,7 +133,7 @@ const Header = () => {
             {links.map((x) => (
               <button key={x.l} onClick={() => setRoute(x.r)} className="text-sm font-medium text-neutral-800 hover:text-neutral-900 transition relative group tracking-wide">
                 {x.l}
-                <span className="absolute -bottom-1 left-0 right-0 h-px bg-gradient-to-r from-transparent via-blue-400 to-transparent scale-x-0 group-hover:scale-x-100 transition-transform" />
+                <span className="absolute -bottom-1 left-0 right-0 h-px bg-gradient-to-r from-transparent via-amber-500 to-transparent scale-x-0 group-hover:scale-x-100 transition-transform" />
               </button>
             ))}
           </nav>
@@ -129,19 +186,19 @@ const Header = () => {
                     {user ? (
                       <div className="space-y-4">
                         <div className="border-b border-neutral-100 pb-3">
-                          <p className="text-[9px] tracking-widest text-neutral-400 font-bold uppercase">SECURE DOSSIER</p>
+                          <p className="text-[9px] tracking-widest text-neutral-400 font-bold uppercase">YOUR ACCOUNT</p>
                           <p className="text-xs font-semibold text-neutral-900 uppercase truncate mt-0.5">{user.name}</p>
                           <p className="text-[9px] font-mono text-neutral-400 truncate mt-0.5">{user.email}</p>
                         </div>
                         
                         <div className="flex flex-col gap-2.5">
                           {[
-                            { label: 'CLIENT ARCHIVES (ORDERS)', view: 'account' },
-                            { label: 'CURATED LOOKS (WISHLIST)', view: 'account' },
-                            { label: 'IDENTITY PROFILE', view: 'account' },
-                            { label: 'ADDRESS PORTFOLIO', view: 'account' },
-                            { label: 'BILLING INSTRUMENTS', view: 'account' },
-                            { label: 'SIGNAL PREFERENCES', view: 'account' }
+                            { label: 'MY ORDERS', view: 'account' },
+                            { label: 'MY WISHLIST', view: 'account' },
+                            { label: 'PROFILE INFO', view: 'account' },
+                            { label: 'DELIVERY ADDRESSES', view: 'account' },
+                            { label: 'PAYMENT METHODS', view: 'account' },
+                            { label: 'NOTIFICATION SETTINGS', view: 'account' }
                           ].map(item => (
                             <button
                               key={item.label}
@@ -149,7 +206,7 @@ const Header = () => {
                                 setRoute({ view: item.view })
                                 setShowDropdown(false)
                               }}
-                              className="text-[10px] tracking-[0.12em] font-medium text-neutral-500 hover:text-neutral-950 text-left transition-colors"
+                              className="text-[10px] tracking-[0.12em] font-semibold text-neutral-500 hover:text-neutral-950 text-left transition-colors"
                             >
                               {item.label}
                             </button>
@@ -163,18 +220,18 @@ const Header = () => {
                               setUser(null)
                               setRoute({ view: 'home' })
                               setShowDropdown(false)
-                              toast.success('Secure session terminated successfully')
+                              toast.success('Logged out successfully')
                             }}
                             className="w-full text-left text-[10px] tracking-widest text-red-500 font-semibold uppercase hover:text-red-700 transition"
                           >
-                            LOGOUT SESSION
+                            LOG OUT
                           </button>
                         </div>
                       </div>
                     ) : (
                       <div className="space-y-4">
                         <div className="border-b border-neutral-100 pb-3">
-                          <p className="text-[9px] tracking-widest text-neutral-400 font-bold uppercase">GUEST IDENTITY</p>
+                          <p className="text-[9px] tracking-widest text-neutral-400 font-bold uppercase">WELCOME</p>
                           <p className="text-xs font-semibold text-neutral-800 uppercase mt-0.5 font-display">Welcome to Velora</p>
                         </div>
                         
@@ -222,11 +279,11 @@ const Header = () => {
 
             <button onClick={() => setRoute({ view: 'wishlist' })} className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/[0.02] transition relative">
               <Heart className="w-5 h-5" />
-              {wishlist.length > 0 && <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-blue-500 text-[10px] font-bold flex items-center justify-center">{wishlist.length}</span>}
+              {wishlist.length > 0 && <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-amber-500 text-[10px] font-bold flex items-center justify-center text-white">{wishlist.length}</span>}
             </button>
-            <button onClick={() => setRoute({ view: 'cart' })} className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/[0.02] transition relative">
+            <button onClick={() => setCartOpen(true)} className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/[0.02] transition relative">
               <ShoppingBag className="w-5 h-5" />
-              {cart.length > 0 && <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-blue-500 text-[10px] font-bold flex items-center justify-center">{cart.reduce((s,i)=>s+i.qty,0)}</span>}
+              {cart.length > 0 && <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-amber-500 text-[10px] font-bold flex items-center justify-center text-white">{cart.reduce((s,i)=>s+i.qty,0)}</span>}
             </button>
           </div>
         </div>
@@ -304,14 +361,21 @@ const ProductCard = ({ p, idx = 0 }) => {
   const inWL = wishlist.includes(p.id)
   return (
     <motion.div
-      initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: '-50px' }}
-      transition={{ duration: 0.6, delay: (idx % 4) * 0.08 }}
-      className="product-card group cursor-pointer"
+      initial={{ opacity: 0, y: 30 }} 
+      whileInView={{ opacity: 1, y: 0 }} 
+      viewport={{ once: true, margin: '-50px' }}
+      whileHover={{ y: -4 }}
+      transition={{ 
+        type: "tween",
+        ease: "easeOut",
+        duration: 0.3 
+      }}
+      className="product-card group cursor-pointer transition-shadow duration-300 hover:shadow-xl rounded-2xl bg-[#fafaf9]"
       onClick={() => setRoute({ view: 'product', id: p.id })}
     >
       <div className="relative aspect-[3/4] overflow-hidden rounded-2xl bg-black/[0.02]">
         <img src={p.images[0]} alt={p.name} className="product-img w-full h-full object-cover" loading="lazy" />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+        <div className="absolute inset-0 bg-black/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
         {p.badge && (
           <span className="absolute top-3 left-3 px-2.5 py-1 text-[10px] tracking-[0.2em] font-bold rounded-full glass-strong">
             {p.badge === 'NEW' && <span className="text-blue-400">● {p.badge}</span>}
@@ -320,10 +384,10 @@ const ProductCard = ({ p, idx = 0 }) => {
             {p.badge === 'SALE' && <span className="text-red-400">▼ -{p.discount}%</span>}
           </span>
         )}
-        <button onClick={(e) => { e.stopPropagation(); toggleWishlist(p.id) }} className="absolute top-3 right-3 w-9 h-9 rounded-full glass-strong flex items-center justify-center hover:scale-110 transition">
+        <button onClick={(e) => { e.stopPropagation(); toggleWishlist(p.id) }} className="absolute top-3 right-3 w-9 h-9 rounded-full glass-strong flex items-center justify-center hover:scale-105 transition">
           <Heart className={`w-4 h-4 ${inWL ? 'fill-red-500 text-red-500' : 'text-neutral-700'}`} />
         </button>
-        <button onClick={(e) => { e.stopPropagation(); addToCart(p, p.sizes[0], p.colors[0]) }} className="absolute bottom-3 left-3 right-3 py-3 rounded-xl bg-neutral-900 text-white font-medium text-sm translate-y-full group-hover:translate-y-0 transition-transform duration-500 flex items-center justify-center gap-2 hover:bg-blue-600">
+        <button onClick={(e) => { e.stopPropagation(); addToCart(p, p.sizes[0], p.colors[0]) }} className="absolute bottom-3 left-3 right-3 py-3 rounded-xl bg-neutral-900 text-white font-medium text-xs opacity-0 group-hover:opacity-100 transition-all duration-300 flex items-center justify-center gap-2 hover:bg-black">
           <ShoppingBag className="w-4 h-4" /> Quick Add
         </button>
       </div>
@@ -344,49 +408,120 @@ const ProductCard = ({ p, idx = 0 }) => {
 }
 
 const HERO_SLIDES = [
-  { title: 'WEAR THE\nFUTURE', sub: 'The Nebula Collection · Autumn/Winter 2025', img: 'https://images.unsplash.com/photo-1472417583565-62e7bdeda490?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA2ODl8MHwxfHNlYXJjaHwzfHxsdXh1cnklMjBmYXNoaW9ufGVufDB8fHxibGFja3wxNzgzMTM2NTY3fDA&ixlib=rb-4.1.0&q=85', cta: 'Explore Nebula', route: { view: 'shop', filter: { category: 'oversized' } } },
-  { title: 'BEYOND\nBOUNDARIES', sub: 'Oversized silhouettes · Techwear engineering', img: 'https://images.unsplash.com/photo-1613909671501-f9678ffc1d33?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA2ODl8MHwxfHNlYXJjaHwyfHxsdXh1cnklMjBmYXNoaW9ufGVufDB8fHxibGFja3wxNzgzMTM2NTY3fDA&ixlib=rb-4.1.0&q=85', cta: 'Shop Women', route: { view: 'shop', filter: { gender: 'women' } } },
-  { title: 'MADE FOR\nNIGHT', sub: 'Limited Edition · Only 200 pieces worldwide', img: 'https://images.pexels.com/photos/31466152/pexels-photo-31466152.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940', cta: 'View Limited', route: { view: 'shop', filter: { tag: 'limited' } } },
+  { title: 'FESTIVE\nCOLLECTION', sub: 'The Noor Collection · Premium soft silk kurtis & beautiful festive ethnic sets', img: 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&q=80&w=1600', cta: 'Shop Festive', route: { view: 'shop', filter: { category: 'ethnic wear' } } },
+  { title: 'CLASSIC\nDESIGNS', sub: 'Beautiful Lucknowi Chikankari & high-quality traditional woven styles', img: 'https://images.unsplash.com/photo-1595777457583-95e059d581b8?auto=format&fit=crop&q=80&w=1600', cta: 'Shop Classics', route: { view: 'shop', filter: { gender: 'women' } } },
+  { title: 'NEW\nARRIVALS', sub: 'Trending daily wear and premium cotton kurtis designed for everyday comfort', img: 'https://images.unsplash.com/photo-1608748010899-18f300247112?auto=format&fit=crop&q=80&w=1600', cta: 'Shop New Arrivals', route: { view: 'shop', filter: { tag: 'new' } } },
 ]
 
 const Hero = () => {
   const { setRoute } = useShop()
   const [i, setI] = useState(0)
-  useEffect(() => { const t = setInterval(() => setI(x => (x + 1) % HERO_SLIDES.length), 6000); return () => clearInterval(t) }, [])
+  const [mousePos, setMousePos] = useState({ x: 0, y: 0 })
+
+  useEffect(() => {
+    const t = setInterval(() => setI(x => (x + 1) % HERO_SLIDES.length), 7000)
+    return () => clearInterval(t)
+  }, [])
+
+  const handleMouseMove = (e) => {
+    const { clientX, clientY } = e
+    const x = (clientX - window.innerWidth / 2) / 30
+    const y = (clientY - window.innerHeight / 2) / 30
+    setMousePos({ x, y })
+  }
+
   const s = HERO_SLIDES[i]
+
   return (
-    <section className="relative h-[100svh] w-full overflow-hidden">
+    <section 
+      onMouseMove={handleMouseMove}
+      className="relative h-[100svh] w-full overflow-hidden select-none"
+    >
       <AnimatePresence mode="wait">
-        <motion.div key={i} initial={{ opacity: 0, scale: 1.1 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }} transition={{ duration: 1.5, ease: 'easeOut' }} className="absolute inset-0">
-          <img src={s.img} alt="" className="w-full h-full object-cover" />
-          <div className="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-black/40" />
-          <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/20 to-transparent" />
+        <motion.div 
+          key={i} 
+          initial={{ opacity: 0, scale: 1.05 }} 
+          animate={{ opacity: 1, scale: 1.02 }} 
+          exit={{ opacity: 0 }} 
+          transition={{ duration: 1.8, ease: [0.16, 1, 0.3, 1] }} 
+          className="absolute inset-0"
+        >
+          <motion.img 
+            src={s.img} 
+            alt="" 
+            animate={{ x: mousePos.x, y: mousePos.y }}
+            transition={{ type: 'tween', ease: 'linear', duration: 0.15 }}
+            className="w-[105%] h-[105%] -left-[2.5%] -top-[2.5%] absolute object-cover" 
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-black/30" />
+          <div className="absolute inset-0 bg-gradient-to-r from-black/75 via-black/15 to-transparent" />
         </motion.div>
       </AnimatePresence>
-      <div className="aurora" />
-      <div className="absolute inset-0 grid-bg opacity-20" />
+
+      <div className="aurora opacity-15" />
+      <div className="absolute inset-0 grid-bg opacity-15" />
+
       <div className="relative z-10 max-w-[1600px] mx-auto px-6 md:px-12 h-full flex flex-col justify-end pb-24 md:pb-32">
-        <motion.div initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 1, delay: 0.3 }} className="max-w-3xl">
-          <p className="text-xs md:text-sm tracking-[0.4em] text-blue-400 mb-6 font-medium">● VELORA MMXXV</p>
+        <div className="max-w-3xl">
+          <motion.p 
+            initial={{ opacity: 0, letterSpacing: '0.1em' }}
+            animate={{ opacity: 1, letterSpacing: '0.35em' }}
+            transition={{ duration: 1.2 }}
+            className="text-xs md:text-sm text-amber-500 mb-6 font-semibold uppercase block"
+          >
+            ● VELORA MMXXVI · EXCLUSIVE DROPS
+          </motion.p>
+          
           <AnimatePresence mode="wait">
-            <motion.h1 key={i} initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -30 }} transition={{ duration: 0.8 }} className="text-massive font-display font-bold whitespace-pre-line silver-white neon-text">
-              {s.title}
-            </motion.h1>
+            <TextMaskReveal key={i} text={s.title} className="text-massive font-display font-bold silver-white select-none leading-none tracking-tight" />
           </AnimatePresence>
-          <p className="text-white/85 text-lg md:text-xl mt-6 font-light font-serif-lux italic">{s.sub}</p>
+
+          <motion.p 
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 0.85, y: 0 }}
+            transition={{ delay: 0.6, duration: 1 }}
+            className="text-white/85 text-lg md:text-xl mt-6 font-light font-serif-lux italic"
+          >
+            {s.sub}
+          </motion.p>
+
           <div className="flex flex-wrap gap-4 mt-10">
-            <Button onClick={() => setRoute(s.route)} size="lg" className="bg-white text-neutral-900 hover:bg-blue-600 hover:text-white h-14 px-8 rounded-full font-medium text-base group">
-              {s.cta} <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition" />
-            </Button>
-            <Button onClick={() => setRoute({ view: 'shop' })} size="lg" variant="outline" className="border-white/30 bg-transparent text-white hover:bg-white/10 hover:text-white h-14 px-8 rounded-full font-medium">
-              Shop All
-            </Button>
+            <MagneticButton 
+              onClick={() => setRoute(s.route)} 
+              className="bg-white text-neutral-950 hover:bg-neutral-900 hover:text-white h-14 px-8 rounded-full font-semibold text-sm uppercase tracking-widest transition-all duration-300 flex items-center justify-center gap-2 group border border-white"
+            >
+              <span>{s.cta}</span>
+              <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition" />
+            </MagneticButton>
+
+            <MagneticButton 
+              onClick={() => setRoute({ view: 'shop' })} 
+              className="border border-white/20 bg-transparent text-white hover:bg-white hover:text-black hover:border-white h-14 px-8 rounded-full font-semibold text-sm uppercase tracking-widest transition-all duration-300"
+            >
+              <span>Shop All</span>
+            </MagneticButton>
           </div>
-        </motion.div>
+        </div>
       </div>
-      <div className="absolute bottom-8 right-8 z-10 flex gap-2">
+
+      <div className="absolute bottom-10 left-12 z-10 hidden md:flex items-center gap-3 text-[10px] tracking-[0.3em] font-semibold text-neutral-400 uppercase select-none">
+        <div className="w-[1px] h-12 bg-white/10 relative overflow-hidden">
+          <motion.div 
+            animate={{ y: ['-100%', '100%'] }} 
+            transition={{ repeat: Infinity, duration: 2, ease: 'easeInOut' }}
+            className="absolute top-0 left-0 w-full h-1/2 bg-amber-500" 
+          />
+        </div>
+        <span>SCROLL TO EXPLORE ATELIER</span>
+      </div>
+
+      <div className="absolute bottom-12 right-12 z-10 flex gap-2">
         {HERO_SLIDES.map((_, idx) => (
-          <button key={idx} onClick={() => setI(idx)} className={`h-1 transition-all ${idx === i ? 'w-12 bg-blue-400' : 'w-6 bg-white/30'} rounded-full`} />
+          <button 
+            key={idx} 
+            onClick={() => setI(idx)} 
+            className={`h-1 transition-all duration-500 ${idx === i ? 'w-12 bg-amber-500' : 'w-6 bg-white/30'} rounded-full`} 
+          />
         ))}
       </div>
     </section>
@@ -396,18 +531,18 @@ const Hero = () => {
 const Collections = () => {
   const { setRoute } = useShop()
   const cols = [
-    { t: 'OVERSIZED', s: 'Bold silhouettes', img: 'https://images.unsplash.com/photo-1649877705659-adf38e1f68f1?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2NzR8MHwxfHNlYXJjaHw0fHxvdmVyc2l6ZWQlMjBmYXNoaW9ufGVufDB8fHxibGFja3wxNzgzMTM2NTczfDA&ixlib=rb-4.1.0&q=85', r: { view: 'shop', filter: { category: 'oversized' } } },
-    { t: 'WOMEN', s: 'The new feminine', img: 'https://images.unsplash.com/photo-1541519481457-763224276691?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1Mjh8MHwxfHNlYXJjaHwzfHxmYXNoaW9uJTIwbW9kZWx8ZW58MHx8fGJsYWNrfDE3ODMxMzY1ODN8MA&ixlib=rb-4.1.0&q=85', r: { view: 'shop', filter: { gender: 'women' } } },
-    { t: 'MEN', s: 'Techwear essentials', img: 'https://images.unsplash.com/photo-1508216310976-c518daae0cdc?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjY2NzF8MHwxfHNlYXJjaHwyfHxzdHJlZXR3ZWFyfGVufDB8fHxibGFja3wxNzgzMTM2NTczfDA&ixlib=rb-4.1.0&q=85', r: { view: 'shop', filter: { gender: 'men' } } },
+    { t: 'FESTIVE SILKS', s: 'Elegant ethnic styles', img: 'https://images.unsplash.com/photo-1617627143750-d86bc21e42bb?auto=format&fit=crop&q=80&w=1000', r: { view: 'shop', filter: { category: 'ethnic wear' } } },
+    { t: 'CHIKANKARI', s: 'Traditional Lucknowi work', img: 'https://images.unsplash.com/photo-1595777457583-95e059d581b8?auto=format&fit=crop&q=80&w=1000', r: { view: 'shop', filter: { gender: 'women' } } },
+    { t: 'DAILY COMFORT', s: 'Everyday premium wear', img: 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&q=80&w=1000', r: { view: 'shop', filter: { tag: 'new' } } },
   ]
   return (
     <section className="py-24 md:py-32 px-6 md:px-12 max-w-[1600px] mx-auto">
       <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="flex items-end justify-between mb-12">
         <div>
-          <p className="text-xs tracking-[0.3em] text-blue-400 mb-3">◆ COLLECTIONS</p>
-          <h2 className="text-huge font-display font-bold silver-text">Shop by Universe</h2>
+          <p className="text-xs tracking-[0.3em] text-amber-500 mb-3">◆ SHOP BY CATEGORY</p>
+          <h2 className="text-huge font-display font-bold silver-text">Shop by Category</h2>
         </div>
-        <button onClick={() => setRoute({ view: 'shop' })} className="hidden md:flex items-center gap-2 text-sm hover:text-blue-400 transition">View All <ArrowRight className="w-4 h-4" /></button>
+        <button onClick={() => setRoute({ view: 'shop' })} className="hidden md:flex items-center gap-2 text-sm hover:text-amber-500 transition">View All <ArrowRight className="w-4 h-4" /></button>
       </motion.div>
       <div className="grid md:grid-cols-3 gap-4 md:gap-6">
         {cols.map((c, i) => (
@@ -475,13 +610,22 @@ const FlashSale = () => {
   )
 }
 
-const TrendingSection = ({ title, tag, subtitle }) => {
+const TrendingSection = ({ title, tag, subtitle, category }) => {
   const { products } = useShop()
-  const filtered = useMemo(() => tag ? products.filter(p => p.tags.includes(tag)).slice(0, 8) : products.slice(0, 8), [products, tag])
+  const filtered = useMemo(() => {
+    let list = products
+    if (tag) {
+      list = list.filter(p => p.tags.includes(tag))
+    }
+    if (category) {
+      list = list.filter(p => p.category === category)
+    }
+    return list.slice(0, 8)
+  }, [products, tag, category])
   return (
     <section className="py-20 px-6 md:px-12 max-w-[1600px] mx-auto">
       <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="text-center mb-12">
-        <p className="text-xs tracking-[0.3em] text-blue-400 mb-3">◆ {subtitle}</p>
+        <p className="text-xs tracking-[0.3em] text-amber-500 mb-3">◆ {subtitle}</p>
         <h2 className="text-huge font-display font-bold silver-text">{title}</h2>
       </motion.div>
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
@@ -510,24 +654,173 @@ const Stats = () => {
 
 const Reviews = () => {
   const rs = [
-    { n: 'Aanya Kapoor', c: 'Mumbai', r: 5, t: 'Absolutely obsessed with the Nebula hoodie. The fabric feels next-level premium. Worth every rupee.' },
-    { n: 'Arjun Malhotra', c: 'Delhi', r: 5, t: 'Better than the international brands I usually buy. The oversized fit is perfect and packaging is luxurious.' },
-    { n: 'Ishita Sharma', c: 'Bengaluru', r: 5, t: 'Velora feels like the future of Indian fashion. The silk slip dress is impeccable.' },
+    { 
+      n: 'Aanya Kapoor', 
+      c: 'Mumbai', 
+      r: 5, 
+      t: 'Absolutely obsessed with the Noor silk kurti set. The fabric feels premium, soft and incredibly comfortable. Worth every rupee.',
+      img: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=400'
+    },
+    { 
+      n: 'Arjun Malhotra', 
+      c: 'Delhi', 
+      r: 5, 
+      t: 'The quality of embroidery is exceptional, far better than other premium brands. The fit is perfect and packaging is lovely.',
+      img: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=400'
+    },
+    { 
+      n: 'Ishita Sharma', 
+      c: 'Bengaluru', 
+      r: 5, 
+      t: 'Velora has become my go-to brand for ethnic wear. The fuchsia kurti set is impeccable and fits beautifully.',
+      img: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&q=80&w=400'
+    },
   ]
+
+  const [activeImg, setActiveImg] = useState(null)
+
   return (
-    <section className="py-24 px-6 md:px-12 max-w-[1600px] mx-auto">
-      <div className="text-center mb-12">
-        <p className="text-xs tracking-[0.3em] text-blue-400 mb-3">◆ REVIEWS</p>
-        <h2 className="text-huge font-display font-bold silver-text">Loved by the Future</h2>
+    <section className="py-24 px-6 md:px-12 max-w-[1600px] mx-auto select-none">
+      <div className="text-center mb-16">
+        <p className="text-xs tracking-[0.3em] text-amber-500 mb-3 font-semibold">◆ CUSTOMER REVIEWS</p>
+        <h2 className="text-huge font-display font-bold silver-text">Trusted by Thousands</h2>
       </div>
+
       <div className="grid md:grid-cols-3 gap-6">
         {rs.map((r, i) => (
-          <motion.div key={i} initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: i * 0.15 }} className="glass p-8 rounded-2xl">
-            <div className="flex gap-1 mb-4">{Array(r.r).fill().map((_, x) => <Star key={x} className="w-4 h-4 fill-amber-400 text-amber-400" />)}</div>
-            <p className="text-neutral-800 font-serif-lux italic text-lg leading-relaxed mb-6">"{r.t}"</p>
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center font-bold">{r.n[0]}</div>
-              <div><p className="font-medium text-sm">{r.n}</p><p className="text-xs text-neutral-500">{r.c} · Verified Buyer</p></div>
+          <motion.div 
+            key={i} 
+            initial={{ opacity: 0, y: 30 }} 
+            whileInView={{ opacity: 1, y: 0 }} 
+            viewport={{ once: true }} 
+            transition={{ delay: i * 0.15, duration: 0.8, ease: [0.16, 1, 0.3, 1] }} 
+            className="glass p-8 rounded-2xl flex flex-col justify-between hover:border-amber-500/20 hover:shadow-xl transition-all duration-300 group relative"
+          >
+            <div>
+              <div className="flex gap-1 mb-6">
+                {Array(r.r).fill().map((_, x) => (
+                  <motion.div
+                    key={x}
+                    initial={{ scale: 0, opacity: 0 }}
+                    whileInView={{ scale: 1, opacity: 1 }}
+                    viewport={{ once: true }}
+                    transition={{ delay: (i * 0.15) + (x * 0.08), type: 'spring', stiffness: 200 }}
+                  >
+                    <Star className="w-4 h-4 fill-amber-500 text-amber-500" />
+                  </motion.div>
+                ))}
+              </div>
+
+              <p className="text-neutral-800 font-serif-lux italic text-lg leading-relaxed mb-8">"{r.t}"</p>
+            </div>
+
+            <div className="flex items-center justify-between gap-3 pt-4 border-t border-black/5 mt-auto">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-neutral-900 border border-white/10 flex items-center justify-center font-bold text-white text-sm">
+                  {r.n[0]}
+                </div>
+                <div>
+                  <p className="font-semibold text-sm text-neutral-900">{r.n}</p>
+                  <div className="flex items-center gap-1.5 mt-0.5">
+                    <span className="text-xs text-neutral-500">{r.c}</span>
+                    <span className="w-1 h-1 rounded-full bg-neutral-300" />
+                    <span className="text-[10px] text-amber-600 font-mono tracking-widest relative overflow-hidden inline-block group">
+                      VERIFIED BUYER
+                      <span className="absolute inset-0 bg-gradient-to-r from-transparent via-amber-500/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div 
+                onClick={() => setActiveImg(r.img)}
+                className="w-12 h-12 rounded-xl overflow-hidden cursor-zoom-in relative group/img border border-black/5 flex-shrink-0"
+              >
+                <img src={r.img} alt="" className="w-full h-full object-cover transition-transform duration-500 group-hover/img:scale-110" />
+                <div className="absolute inset-0 bg-black/20 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center text-[10px] text-white">🔍</div>
+              </div>
+            </div>
+          </motion.div>
+        ))}
+      </div>
+
+      <AnimatePresence>
+        {activeImg && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setActiveImg(null)}
+            className="fixed inset-0 bg-black/95 z-[1000] flex items-center justify-center p-4 cursor-zoom-out"
+          >
+            <motion.div 
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              transition={{ type: 'spring', damping: 25 }}
+              className="relative max-w-3xl max-h-[85vh] rounded-2xl overflow-hidden border border-white/10"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <img src={activeImg} alt="Client Look" className="max-w-full max-h-[80vh] object-contain" />
+              <button 
+                onClick={() => setActiveImg(null)}
+                className="absolute top-4 right-4 w-10 h-10 rounded-full bg-black/50 text-white flex items-center justify-center hover:bg-black/80 transition"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </section>
+  )
+}
+
+const TrustDrawingIcon = ({ type }) => {
+  const p = {
+    shipping: "M8.25 18.75a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 0 1-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124l-.358-5.74a2.25 2.25 0 0 0-1.74-2.068l-3.35-.67a1.125 1.125 0 0 0-1.125.83l-1 3.5m-3.5 0h-1",
+    returns: "M9 15 3 9m0 0 6-6M3 9h12a6 6 0 0 1 0 12h-3",
+    secure: "M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.57-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z",
+    quality: "M11.48 3.499c.153-.377.693-.377.846 0l2.052 5.074a.429.429 0 0 0 .343.249l5.441.455c.417.035.584.552.26.837l-4.14 3.655a.429.429 0 0 0-.131.411l1.19 5.293c.09.4-.33.705-.688.47l-4.664-3.08a.429.429 0 0 0-.476 0l-4.664 3.08c-.358.235-.778-.069-.688-.47l1.19-5.293a.429.429 0 0 0-.13-.411l-4.14-3.655c-.324-.285-.157-.802.26-.837l5.442-.455a.43.43 0 0 0 .342-.249l2.053-5.074Z"
+  }
+  return (
+    <svg className="w-6 h-6 text-amber-500" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
+      <motion.path 
+        initial={{ pathLength: 0, opacity: 0 }}
+        whileInView={{ pathLength: 1, opacity: 1 }}
+        viewport={{ once: true }}
+        transition={{ duration: 1.5, ease: 'easeInOut' }}
+        d={p[type]} 
+      />
+    </svg>
+  )
+}
+
+const Trust = () => {
+  const b = [
+    { type: 'shipping', t: 'Free Delivery', s: 'On orders above ₹1499' },
+    { type: 'returns', t: 'Easy Returns', s: '15-day return policy' },
+    { type: 'secure', t: 'Secure Payments', s: 'Cash on Delivery (COD)' },
+    { type: 'quality', t: 'Premium Quality', s: 'Perfect fit & premium feel' },
+  ]
+  return (
+    <section className="py-16 px-6 md:px-12 max-w-[1600px] mx-auto select-none">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {b.map(({ type, t, s }, x) => (
+          <motion.div 
+            key={t} 
+            initial={{ opacity: 0, y: 20 }} 
+            whileInView={{ opacity: 1, y: 0 }} 
+            viewport={{ once: true }} 
+            transition={{ delay: x * 0.1 }} 
+            className="glass p-6 rounded-2xl flex items-center gap-4 hover:border-amber-500/30 hover:shadow-lg transition-all duration-300"
+          >
+            <div className="w-12 h-12 rounded-xl bg-amber-500/5 border border-amber-500/10 flex items-center justify-center flex-shrink-0">
+              <TrustDrawingIcon type={type} />
+            </div>
+            <div>
+              <p className="font-semibold text-sm text-neutral-900">{t}</p>
+              <p className="text-xs text-neutral-500 mt-0.5">{s}</p>
             </div>
           </motion.div>
         ))}
@@ -536,22 +829,85 @@ const Reviews = () => {
   )
 }
 
-const Trust = () => {
-  const b = [
-    { i: Truck, t: 'Free Shipping', s: 'Orders above ₹1499' },
-    { i: RotateCcw, t: '15-Day Returns', s: 'Easy & hassle-free' },
-    { i: Shield, t: 'Secure Payments', s: '100% protected' },
-    { i: Award, t: 'Premium Quality', s: 'Curated & tested' },
-  ]
+const BrandStory = () => {
   return (
-    <section className="py-16 px-6 md:px-12 max-w-[1600px] mx-auto">
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {b.map(({ i: I, t, s }, x) => (
-          <motion.div key={t} initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: x * 0.1 }} className="glass p-6 rounded-2xl flex items-center gap-4 hover:border-blue-400/30 transition">
-            <div className="w-12 h-12 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center flex-shrink-0"><I className="w-5 h-5 text-blue-400" /></div>
-            <div><p className="font-semibold text-sm">{t}</p><p className="text-xs text-neutral-500 mt-0.5">{s}</p></div>
+    <section className="py-28 bg-neutral-950 text-white overflow-hidden relative select-none border-t border-white/5">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,_rgba(212,175,55,0.02),_transparent_45%)] pointer-events-none" />
+      
+      <div className="max-w-[1600px] mx-auto px-6 md:px-12 grid md:grid-cols-2 gap-16 items-center relative z-10">
+        
+        <div className="space-y-8">
+          <span className="text-xs font-mono tracking-[0.4em] text-amber-500 uppercase block">◆ ELIXIR OF THE BRAND</span>
+          <h2 className="text-4xl md:text-6xl font-display font-medium tracking-tight silver-white leading-none">
+            An Atelier Built on Pure Precision
+          </h2>
+          
+          <div className="space-y-6 text-neutral-400 font-light text-base md:text-lg leading-relaxed font-serif-lux italic">
+            <p>
+              "Crafted for Modern India." We believe luxury isn't about excess. It is the perfect cohesion of architectural silhouettes, avant-garde details, and local Indian artisanal soul.
+            </p>
+            <p>
+              "Built with precision." Every loopback knit thread is meticulously measured, every silken french seam double-checked, and every sample wear-tested through the streets of Bengaluru.
+            </p>
+            <p>
+              "Worn with confidence." You do not just drape Velora; you wear a vision of futuristic Indian fashion designed to transcend trends and outlive seasons.
+            </p>
+          </div>
+
+          <div className="pt-4 flex gap-8 text-[10px] font-mono tracking-widest text-neutral-500 uppercase">
+            <div>
+              <p className="text-white text-lg font-display">100%</p>
+              <p className="mt-1">ORGANIC INDIAN FIBER</p>
+            </div>
+            <div className="w-px bg-white/10" />
+            <div>
+              <p className="text-white text-lg font-display">16</p>
+              <p className="mt-1">STITCHES PER INCH</p>
+            </div>
+            <div className="w-px bg-white/10" />
+            <div>
+              <p className="text-white text-lg font-display">बेंगलुरु</p>
+              <p className="mt-1">DESIGN LABS</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4 relative">
+          <div className="absolute -inset-4 bg-gradient-to-r from-transparent via-white/[0.01] to-transparent blur-3xl pointer-events-none" />
+          
+          <motion.div 
+            initial={{ opacity: 0, y: 40 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 1, ease: [0.16, 1, 0.3, 1] }}
+            className="aspect-[3/4] rounded-2xl overflow-hidden bg-neutral-900 border border-white/5 relative group"
+          >
+            <img 
+              src="https://images.unsplash.com/photo-1610030469668-93535c17b6b3?auto=format&fit=crop&q=80&w=600" 
+              alt="Atelier drafting" 
+              className="w-full h-full object-cover grayscale opacity-60 group-hover:scale-105 group-hover:grayscale-0 transition-all duration-1000" 
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent" />
+            <span className="absolute bottom-4 left-4 text-[9px] font-mono tracking-widest text-neutral-400">01 / CONCEPT DRAWS</span>
           </motion.div>
-        ))}
+
+          <motion.div 
+            initial={{ opacity: 0, y: 80 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 1.2, ease: [0.16, 1, 0.3, 1] }}
+            className="aspect-[3/4] rounded-2xl overflow-hidden bg-neutral-900 border border-white/5 relative mt-8 group"
+          >
+            <img 
+              src="https://images.unsplash.com/photo-1631856955355-15a00bd7708c?auto=format&fit=crop&q=80&w=600" 
+              alt="Atelier weaving" 
+              className="w-full h-full object-cover grayscale opacity-60 group-hover:scale-105 group-hover:grayscale-0 transition-all duration-1000" 
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent" />
+            <span className="absolute bottom-4 left-4 text-[9px] font-mono tracking-widest text-neutral-400">02 / FIBER PRECISION</span>
+          </motion.div>
+        </div>
+
       </div>
     </section>
   )
@@ -564,17 +920,39 @@ const Newsletter = () => {
     await fetch('/api/newsletter', { method: 'POST', body: JSON.stringify({ email: e }) })
     setOk(true); toast.success('Welcome to Velora! Check your inbox.')
   }
+
   return (
-    <section className="py-24 px-6 md:px-12 max-w-4xl mx-auto text-center">
-      <p className="text-xs tracking-[0.3em] text-blue-400 mb-3">◆ JOIN THE FUTURE</p>
+    <section className="py-28 px-6 md:px-12 max-w-4xl mx-auto text-center relative overflow-hidden select-none">
+      <motion.div 
+        animate={{ y: [0, -10, 0], rotate: [0, 5, 0] }}
+        transition={{ repeat: Infinity, duration: 4, ease: 'easeInOut' }}
+        className="mx-auto w-12 h-12 mb-6 flex items-center justify-center text-neutral-300 hover:text-amber-500 transition-colors duration-500"
+      >
+        <svg className="w-8 h-8" fill="none" stroke="currentColor" strokeWidth="1.2" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 0 1-2.25 2.25h-15a2.25 2.25 0 0 1-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25m19.5 0v.243a2.25 2.25 0 0 1-1.07 1.916l-7.5 4.615a2.25 2.25 0 0 1-2.36 0L3.32 8.91a2.25 2.25 0 0 1-1.07-1.916V6.75" />
+        </svg>
+      </motion.div>
+
+      <p className="text-xs tracking-[0.3em] text-amber-500 mb-3 font-semibold uppercase">◆ JOIN THE VELORA FAMILY</p>
       <h2 className="text-huge font-display font-bold silver-text mb-4">Get 10% Off Your First Order</h2>
-      <p className="text-neutral-600 mb-8 max-w-lg mx-auto">Be first to know about new drops, exclusive access to limited editions, and members-only offers.</p>
+      <p className="text-neutral-500 mb-8 max-w-lg mx-auto font-light leading-relaxed">Be the first to know about our new arrivals, special sales, and exclusive festive collections.</p>
+      
       {ok ? (
-        <div className="glass rounded-full px-6 py-4 inline-flex items-center gap-2 text-blue-400"><Check className="w-4 h-4" /> You're on the list</div>
+        <div className="glass rounded-full px-6 py-4 inline-flex items-center gap-2 text-amber-500 border border-amber-500/20">
+          <Check className="w-4 h-4" /> You're on the list
+        </div>
       ) : (
-        <div className="glass rounded-full p-2 flex gap-2 max-w-md mx-auto border border-black/10">
-          <input value={e} onChange={(x) => setE(x.target.value)} placeholder="your@email.com" className="flex-1 bg-transparent px-4 outline-none text-sm" />
-          <Button onClick={sub} className="rounded-full bg-neutral-900 text-white hover:bg-blue-600 hover:text-white px-6">Subscribe</Button>
+        <div className="glass rounded-full p-2 flex gap-2 max-w-md mx-auto border border-black/10 focus-within:border-amber-500/40 transition-colors duration-300">
+          <input 
+            value={e} 
+            onChange={(x) => setE(x.target.value)} 
+            placeholder="your@email.com" 
+            className="flex-1 bg-transparent px-4 outline-none text-sm font-light text-neutral-800 placeholder-neutral-400" 
+          />
+          <Button onClick={sub} className="rounded-full bg-neutral-900 text-white hover:bg-neutral-950 px-6 uppercase tracking-wider text-xs font-semibold h-10 shadow-lg relative overflow-hidden group">
+            <span className="relative z-10">Subscribe</span>
+            <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
+          </Button>
         </div>
       )}
     </section>
@@ -584,29 +962,52 @@ const Newsletter = () => {
 const Footer = () => {
   const { setRoute } = useShop()
   return (
-    <footer className="border-t border-black/10 mt-24 relative overflow-hidden">
-      <div className="max-w-[1600px] mx-auto px-6 md:px-12 py-16 grid md:grid-cols-4 gap-12">
+    <footer className="border-t border-black/10 mt-24 relative overflow-hidden bg-neutral-950 text-white select-none">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_80%_90%,_rgba(212,175,55,0.015),_transparent_40%)] pointer-events-none" />
+      
+      <div className="max-w-[1600px] mx-auto px-6 md:px-12 py-20 grid md:grid-cols-4 gap-12 relative z-10">
         <div>
           <VeloraLogo size="lg" />
-          <p className="text-sm text-neutral-500 mt-4 leading-relaxed">Ultra-modern Indian luxury fashion. Engineered in Bengaluru · Delivered across India.</p>
+          <p className="text-sm text-neutral-400 mt-4 leading-relaxed font-light">
+            Premium Indian & Pakistani ethnic fashion brand. Delivered across India, Pakistan, and Bangladesh.
+          </p>
           <div className="flex gap-3 mt-6">
-            {[Instagram, Twitter, Facebook, Youtube].map((I, i) => <button key={i} className="w-10 h-10 rounded-full glass flex items-center justify-center hover:border-blue-400/50 transition"><I className="w-4 h-4" /></button>)}
+            {[Instagram, Twitter, Facebook, Youtube].map((I, i) => (
+              <button 
+                key={i} 
+                className="w-10 h-10 rounded-full border border-white/5 bg-white/[0.02] flex items-center justify-center hover:border-amber-500/50 hover:text-amber-500 text-neutral-300 transition-all duration-300"
+              >
+                <I className="w-4 h-4" />
+              </button>
+            ))}
           </div>
         </div>
         {[
-          { t: 'Shop', l: [['Men', { view: 'shop', filter: { gender: 'men' } }], ['Women', { view: 'shop', filter: { gender: 'women' } }], ['Oversized', { view: 'shop', filter: { category: 'oversized' } }], ['New Arrivals', { view: 'shop', filter: { tag: 'new' } }], ['Sale', { view: 'shop', filter: { tag: 'sale' } }]] },
+          { t: 'Shop', l: [['Men', { view: 'shop', filter: { gender: 'men' } }], ['Women', { view: 'shop', filter: { gender: 'women' } }], ['Ethnic Wear', { view: 'shop', filter: { category: 'ethnic wear' } }], ['Oversized', { view: 'shop', filter: { category: 'oversized' } }], ['New Arrivals', { view: 'shop', filter: { tag: 'new' } }], ['Sale', { view: 'shop', filter: { tag: 'sale' } }]] },
           { t: 'Help', l: [['Contact', { view: 'contact' }], ['FAQ', { view: 'faq' }], ['Size Guide', { view: 'size-guide' }], ['Shipping', { view: 'shipping' }], ['Track Order', { view: 'track-order' }]] },
           { t: 'Company', l: [['About', { view: 'about' }], ['Privacy', { view: 'privacy' }], ['Terms', { view: 'terms' }], ['Returns', { view: 'shipping' }]] },
         ].map(c => (
           <div key={c.t}>
-            <h4 className="text-sm font-semibold tracking-widest mb-4">{c.t.toUpperCase()}</h4>
-            <ul className="space-y-2">{c.l.map(([n, r]) => <li key={n}><button onClick={() => setRoute(r)} className="text-sm text-neutral-600 hover:text-neutral-900 transition">{n}</button></li>)}</ul>
+            <h4 className="text-xs font-semibold tracking-[0.25em] mb-6 text-neutral-300 uppercase">{c.t}</h4>
+            <ul className="space-y-3">
+              {c.l.map(([n, r]) => (
+                <li key={n}>
+                  <button 
+                    onClick={() => setRoute(r)} 
+                    className="text-sm text-neutral-400 hover:text-white transition-colors duration-200 font-light flex items-center gap-1.5 group"
+                  >
+                    <span className="w-1 h-1 rounded-full bg-amber-500 scale-0 group-hover:scale-100 transition-transform duration-300" />
+                    <span>{n}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
           </div>
         ))}
       </div>
-      <div className="border-t border-black/10">
-        <div className="max-w-[1600px] mx-auto px-6 md:px-12 py-6 flex flex-col md:flex-row justify-between gap-4 text-xs text-neutral-500">
-          <p>© 2025 Velora. All rights reserved. Wear the Future.</p>
+      <div className="border-t border-white/5 bg-black/30">
+        <div className="max-w-[1600px] mx-auto px-6 md:px-12 py-8 flex flex-col md:flex-row justify-between gap-4 text-xs text-neutral-500">
+          <p>© 2026 Velora. All rights reserved.</p>
           <p>Made in India · GSTIN: 29ABCDE1234F1Z5</p>
         </div>
       </div>
@@ -614,16 +1015,46 @@ const Footer = () => {
   )
 }
 
+const FaqInline = () => {
+  const faqs = [
+    ['How long does delivery take?', 'We deliver across India, Pakistan, and Bangladesh. Standard delivery takes 3-7 business days, and metro cities usually receive orders within 2-4 days.'],
+    ['What is your return policy?', 'We offer an easy 15-day return and exchange policy. Items must be unworn and have their original tags.'],
+    ['Is Cash on Delivery (COD) available?', 'Yes, Cash on Delivery is available across most postal codes for a small ₹49 handling fee.'],
+    ['How do I find my size?', 'Check the "Find My Size" size assistant on any product page for a custom recommended fit.'],
+    ['How can I track my order?', 'You can easily track your order using the order ID sent to your email on our Track Order page.'],
+    ['Are your products high quality?', 'Every Velora piece is made with premium quality fabrics, beautiful embroidery, and is thoroughly checked for a perfect fit.'],
+  ]
+  return (
+    <section className="py-20 px-6 md:px-12 max-w-4xl mx-auto select-none">
+      <div className="text-center mb-12">
+        <p className="text-xs tracking-[0.3em] text-amber-500 mb-3 font-semibold uppercase">◆ HELP CENTER</p>
+        <h2 className="text-huge font-display font-bold silver-text">Frequently Asked Questions</h2>
+      </div>
+      <div className="glass p-6 md:p-8 rounded-2xl border border-black/10">
+        <Accordion type="single" collapsible className="w-full">
+          {faqs.map(([q, a], i) => (
+            <AccordionItem value={String(i)} key={i} className="border-black/10">
+              <AccordionTrigger className="text-left text-sm font-medium py-4 text-neutral-800 hover:text-amber-500">{q}</AccordionTrigger>
+              <AccordionContent className="text-neutral-600 text-xs leading-relaxed pb-4">{a}</AccordionContent>
+            </AccordionItem>
+          ))}
+        </Accordion>
+      </div>
+    </section>
+  )
+}
+
 const HomePage = () => (
   <>
     <Hero />
-    <Trust />
     <Collections />
-    <TrendingSection title="Trending Now" subtitle="BESTSELLERS" tag="bestseller" />
-    <FlashSale />
-    <TrendingSection title="Just Landed" subtitle="NEW ARRIVALS" tag="new" />
-    <Stats />
+    <TrendingSection title="Trending Products" subtitle="TRENDING STYLES" tag="bestseller" />
+    <TrendingSection title="New Arrivals" subtitle="LATEST DESIGNS" tag="new" />
+    <TrendingSection title="Festive Collection" subtitle="FESTIVE SPECIALS" category="ethnic wear" />
+    <TrendingSection title="Best Sellers" subtitle="MOST LOVED" tag="bestseller" />
+    <Trust />
     <Reviews />
+    <FaqInline />
     <Newsletter />
   </>
 )
@@ -637,14 +1068,81 @@ const ShopPage = () => {
   const [priceRange, setPriceRange] = useState([0, 10000])
   const [filterOpen, setFilterOpen] = useState(false)
 
+  // AI Smart & Visual Search states
+  const [searchVal, setSearchVal] = useState('')
+  const [aiProducts, setAiProducts] = useState(null)
+  const [aiExplanation, setAiExplanation] = useState('')
+  const [loadingAi, setLoadingAi] = useState(false)
+  const [visualSearchActive, setVisualSearchActive] = useState(false)
+
   useEffect(() => {
     setGender(route.filter?.gender || 'all')
     setCategory(route.filter?.category || 'all')
     setTag(route.filter?.tag || '')
+    // Reset AI search products on route category/tag change so user starts fresh
+    setAiProducts(null)
+    setAiExplanation('')
+    setSearchVal('')
   }, [route])
 
+  const handleSmartSearch = async (e) => {
+    if (e) e.preventDefault()
+    if (!searchVal.trim()) return
+    setLoadingAi(true)
+    setVisualSearchActive(false)
+    try {
+      const res = await fetch('/api/ai/smart-search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ q: searchVal })
+      }).then(r => r.json())
+      setAiProducts(res.products || [])
+      setAiExplanation('')
+    } catch (err) {
+      console.error("AI Smart Search error:", err)
+      toast.error("Atelier concierge search is temporarily offline")
+    } finally {
+      setLoadingAi(false)
+    }
+  }
+
+  const handleVisualSearch = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setLoadingAi(true)
+    setVisualSearchActive(true)
+    
+    const reader = new FileReader()
+    reader.onloadend = async () => {
+      const base64 = reader.result
+      try {
+        const res = await fetch('/api/ai/visual-search', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ image: base64 })
+        }).then(r => r.json())
+        setAiProducts(res.products || [])
+        setAiExplanation(res.explanation || '')
+        toast.success("Atelier vision scan complete")
+      } catch (err) {
+        console.error("AI Visual Search error:", err)
+        toast.error("Visual recognition is currently offline")
+      } finally {
+        setLoadingAi(false)
+      }
+    }
+    reader.readAsDataURL(file)
+  }
+
+  const clearAiSearch = () => {
+    setAiProducts(null)
+    setAiExplanation('')
+    setSearchVal('')
+    setVisualSearchActive(false)
+  }
+
   const filtered = useMemo(() => {
-    let r = products
+    let r = aiProducts !== null ? aiProducts : products
     if (gender !== 'all') r = r.filter(p => p.gender === gender || p.gender === 'unisex')
     if (category !== 'all') r = r.filter(p => p.category === category)
     if (tag) r = r.filter(p => p.tags.includes(tag))
@@ -653,7 +1151,7 @@ const ShopPage = () => {
     else if (sort === 'price-high') r = [...r].sort((a, b) => b.price - a.price)
     else if (sort === 'rating') r = [...r].sort((a, b) => b.rating - a.rating)
     return r
-  }, [products, gender, category, tag, sort, priceRange])
+  }, [products, gender, category, tag, sort, priceRange, aiProducts])
 
   const Filters = () => (
     <div className="space-y-6">
@@ -665,7 +1163,7 @@ const ShopPage = () => {
       </div>
       <div>
         <p className="text-xs tracking-[0.2em] text-neutral-500 mb-3">CATEGORY</p>
-        {['all', 'oversized', 'tops', 'bottoms', 'dresses', 'outerwear', 'Testing'].map(c => (
+        {['all', 'ethnic wear', 'oversized', 'tops', 'bottoms', 'dresses', 'outerwear', 'Testing'].map(c => (
           <button key={c} onClick={() => setCategory(c)} className={`block w-full text-left py-2 px-3 rounded-lg text-sm capitalize ${category === c ? 'bg-blue-500/20 text-blue-300' : 'hover:bg-black/[0.02]'}`}>{c}</button>
         ))}
       </div>
@@ -685,10 +1183,85 @@ const ShopPage = () => {
   return (
     <div className="pt-8 pb-20 px-6 md:px-12 max-w-[1600px] mx-auto">
       <div className="mb-12">
-        <p className="text-xs tracking-[0.3em] text-blue-400 mb-3">◆ THE COLLECTION</p>
+        <p className="text-xs tracking-[0.3em] text-neutral-500 mb-3">◆ THE COLLECTION</p>
         <h1 className="text-huge font-display font-bold silver-text">{tag ? tag.charAt(0).toUpperCase() + tag.slice(1) : category !== 'all' ? category.charAt(0).toUpperCase() + category.slice(1) : gender !== 'all' ? gender.charAt(0).toUpperCase() + gender.slice(1) : 'All'}</h1>
-        <p className="text-neutral-500 mt-2">{filtered.length} products</p>
+        <p className="text-neutral-500 mt-2">{filtered.length} products available</p>
       </div>
+
+      {/* AI Smart Search & Visual Search Toolbar */}
+      <div className="mb-10 max-w-xl">
+        <form onSubmit={handleSmartSearch} className="flex gap-2 relative">
+          <div className="relative flex-1">
+            <span className="absolute inset-y-0 left-4 flex items-center pointer-events-none text-neutral-400">
+              <Search className="w-4 h-4" />
+            </span>
+            <Input 
+              value={searchVal}
+              onChange={(e) => setSearchVal(e.target.value)}
+              placeholder="Search collections with AI (e.g. 'wedding wear under ₹2000')..."
+              className="pl-11 pr-24 h-12 bg-[#fcfbf9] border-black/10 rounded-full text-xs font-mono tracking-wide placeholder:text-neutral-400 focus:border-neutral-900 focus:ring-0"
+            />
+            <div className="absolute inset-y-0 right-2 flex items-center gap-1">
+              <input 
+                type="file" 
+                id="shop-visual-search" 
+                accept="image/*" 
+                className="hidden" 
+                onChange={handleVisualSearch} 
+              />
+              <button 
+                type="button"
+                onClick={() => document.getElementById('shop-visual-search').click()}
+                title="AI Visual Search (Upload Photo)"
+                className="w-8 h-8 rounded-full hover:bg-neutral-100 flex items-center justify-center text-neutral-500 transition duration-300"
+              >
+                <Camera className="w-4 h-4" />
+              </button>
+              <button 
+                type="submit"
+                className="bg-neutral-950 text-white rounded-full px-4 h-8 text-[9px] font-mono tracking-widest uppercase hover:bg-neutral-800 transition duration-300 font-bold"
+              >
+                {loadingAi ? 'Scanning...' : 'Search'}
+              </button>
+            </div>
+          </div>
+          {aiProducts !== null && (
+            <button
+              type="button"
+              onClick={clearAiSearch}
+              className="h-12 w-12 rounded-full border border-black/10 flex items-center justify-center hover:bg-neutral-100 transition duration-300"
+              title="Clear Search"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </form>
+
+        {loadingAi && (
+          <div className="flex items-center gap-2 mt-3 text-[10px] font-mono text-neutral-500 tracking-wider">
+            <RefreshCw className="w-3.5 h-3.5 animate-spin text-neutral-950" />
+            <span>Consulting VELORA Atelier archive intelligence...</span>
+          </div>
+        )}
+
+        {aiProducts !== null && !loadingAi && (
+          <div className="mt-4 flex flex-col gap-2">
+            <div className="flex items-center justify-between text-[10px] font-mono tracking-wider text-neutral-500">
+              <span className="uppercase text-neutral-900 font-bold flex items-center gap-1">
+                <Sparkles className="w-3 h-3 text-amber-500" />
+                {visualSearchActive ? 'AI Visual Match Results' : 'AI Smart Filter Applied'}
+              </span>
+              <button onClick={clearAiSearch} className="underline hover:text-neutral-900">Reset Search</button>
+            </div>
+            {aiExplanation && (
+              <p className="bg-[#fcfbf9] border border-black/5 rounded-2xl p-4 text-xs text-neutral-600 italic font-serif-lux">
+                ✨ Vera Stylist: "{aiExplanation}"
+              </p>
+            )}
+          </div>
+        )}
+      </div>
+
       <div className="flex gap-8">
         <aside className="hidden lg:block w-64 flex-shrink-0"><Filters /></aside>
         <div className="flex-1">
@@ -722,16 +1295,38 @@ const ProductPage = () => {
   const [size, setSize] = useState(''); const [color, setColor] = useState('')
   const [qty, setQty] = useState(1)
   const [pin, setPin] = useState(''); const [pinRes, setPinRes] = useState(null)
+  
+  // AI Premium features states
+  const [showSizeModal, setShowSizeModal] = useState(false)
+  const [reviewSummary, setReviewSummary] = useState(null)
+  const [loadingSummary, setLoadingSummary] = useState(false)
+  const [addedAccessories, setAddedAccessories] = useState({})
 
   useEffect(() => {
+    if (!product?.id) return;
+    setLoadingSummary(true)
+    fetch(`/api/ai/review-summary?productId=${product.id}`)
+      .then(res => res.json())
+      .then(data => setReviewSummary(data))
+      .catch(err => console.error("Error fetching review summary:", err))
+      .finally(() => setLoadingSummary(false))
+  }, [product?.id])
+
+  useEffect(() => {
+    if (!route.id) return;
     fetch(`/api/product/${route.id}`)
-      .then(r => r.json())
+      .then(r => {
+        if (!r.ok) throw new Error(`HTTP status ${r.status}`);
+        return r.json();
+      })
       .then(d => {
-        setProduct(d.product); setRelated(d.related || [])
-        setSize(d.product?.sizes[0] || ''); setColor(d.product?.colors[0] || ''); setImgIdx(0)
-        window.scrollTo(0, 0)
-        if (d.product) {
+        if (d && d.product) {
+          setProduct(d.product); setRelated(d.related || [])
+          setSize(d.product?.sizes?.[0] || ''); setColor(d.product?.colors?.[0] || ''); setImgIdx(0)
+          window.scrollTo(0, 0)
           addRecentlyViewed(d.product)
+        } else {
+          throw new Error('Product not found in database response');
         }
       })
       .catch(err => {
@@ -742,8 +1337,8 @@ const ProductPage = () => {
           if (localProd) {
             setProduct(localProd)
             setRelated(cachedProds.filter(x => x.category === localProd.category && x.id !== localProd.id).slice(0, 4))
-            setSize(localProd.sizes[0] || '')
-            setColor(localProd.colors[0] || '')
+            setSize(localProd.sizes?.[0] || '')
+            setColor(localProd.colors?.[0] || '')
             setImgIdx(0)
             addRecentlyViewed(localProd)
           }
@@ -752,8 +1347,17 @@ const ProductPage = () => {
   }, [route.id])
 
   if (!product) return <div className="h-screen flex items-center justify-center"><div className="w-12 h-12 border-2 border-blue-500 border-t-transparent rounded-full spin-slow" /></div>
+  
   const checkPin = async () => {
-    const r = await fetch(`/api/pincode/${pin}`).then(x => x.json()); setPinRes(r)
+    try {
+      const r = await fetch(`/api/pincode/${pin}`).then(x => {
+        if (!x.ok) throw new Error();
+        return x.json();
+      });
+      setPinRes(r);
+    } catch (e) {
+      setPinRes({ serviceable: false, message: 'Could not verify pincode' });
+    }
   }
 
   return (
@@ -797,37 +1401,45 @@ const ProductPage = () => {
           <div className="flex items-baseline gap-3 mb-2">
             <span className="text-4xl font-display font-bold">{fmt(product.price)}</span>
             <span className="text-lg text-neutral-500 line-through">{fmt(product.mrp)}</span>
-            <span className="text-sm text-blue-400 font-bold">-{product.discount}%</span>
+            <span className="text-sm text-neutral-950 font-bold bg-neutral-100 px-2 py-0.5 rounded">-{product.discount}% OFF</span>
           </div>
-          <p className="text-xs text-neutral-500 mb-8">Inclusive of all taxes · Free shipping above ₹1499</p>
+          <p className="text-xs text-neutral-500 mb-8 font-mono tracking-wide">Inclusive of all taxes · Free delivery on premium orders above ₹1499</p>
           <p className="text-neutral-700 leading-relaxed mb-8 font-serif-lux text-lg italic">{product.description}</p>
 
           <div className="mb-6">
-            <div className="flex items-center justify-between mb-3"><p className="text-sm font-medium">Color: <span className="text-neutral-600">{color}</span></p></div>
+            <div className="flex items-center justify-between mb-3"><p className="text-sm font-medium uppercase tracking-wider text-neutral-500 text-xs">Atelier Color: <span className="text-neutral-900 font-semibold">{color}</span></p></div>
             <div className="flex flex-wrap gap-2">
               {product.colors.map(c => (
-                <button key={c} onClick={() => setColor(c)} className={`px-4 py-2 rounded-full text-sm border transition ${color === c ? 'border-blue-400 bg-blue-500/10 text-blue-300' : 'border-black/15 hover:border-black/25'}`}>{c}</button>
+                <button key={c} onClick={() => setColor(c)} className={`px-4 py-2 rounded-full text-xs font-medium border transition duration-300 uppercase tracking-wider ${color === c ? 'border-neutral-950 bg-neutral-950/5 text-neutral-950 font-bold' : 'border-neutral-200 text-neutral-500 hover:border-neutral-400'}`}>{c}</button>
               ))}
             </div>
           </div>
           <div className="mb-6">
             <div className="flex items-center justify-between mb-3">
-              <p className="text-sm font-medium">Size: <span className="text-neutral-600">{size}</span></p>
-              <button onClick={() => setRoute({ view: 'size-guide' })} className="text-xs text-blue-400 hover:underline">Size Guide</button>
+              <p className="text-sm font-medium uppercase tracking-wider text-neutral-500 text-xs">Atelier Size: <span className="text-neutral-900 font-semibold">{size}</span></p>
+              <button onClick={() => setShowSizeModal(true)} className="text-xs text-neutral-950 hover:text-neutral-600 font-semibold tracking-wider uppercase underline flex items-center gap-1">✨ AI Size Advisor</button>
             </div>
             <div className="flex flex-wrap gap-2">
               {product.sizes.map(s => (
-                <button key={s} onClick={() => setSize(s)} className={`min-w-[3rem] px-4 py-2.5 rounded-lg text-sm border transition ${size === s ? 'border-blue-400 bg-blue-500/10 text-blue-300' : 'border-black/15 hover:border-black/25'}`}>{s}</button>
+                <button key={s} onClick={() => setSize(s)} className={`min-w-[3rem] px-4 py-2.5 rounded-lg text-xs font-bold border transition duration-300 tracking-wider ${size === s ? 'border-neutral-950 bg-neutral-950/5 text-neutral-950' : 'border-neutral-200 text-neutral-500 hover:border-neutral-400'}`}>{s}</button>
               ))}
             </div>
           </div>
+
+          {product.stock && product.stock <= 50 && (
+            <div className="flex items-center gap-2 text-[10px] font-mono uppercase tracking-widest text-amber-700 bg-amber-500/5 border border-amber-500/10 rounded-xl p-3.5 mb-5">
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-600 animate-pulse" />
+              <span>Limited Archive: Only {product.stock} items of this silhouette remain in stock.</span>
+            </div>
+          )}
+
           <div className="flex items-center gap-3 mb-8">
             <div className="glass rounded-full flex items-center border border-black/10">
               <button onClick={() => setQty(Math.max(1, qty - 1))} className="w-10 h-10 flex items-center justify-center"><Minus className="w-4 h-4" /></button>
-              <span className="w-10 text-center">{qty}</span>
+              <span className="w-10 text-center font-semibold text-sm">{qty}</span>
               <button onClick={() => setQty(qty + 1)} className="w-10 h-10 flex items-center justify-center"><Plus className="w-4 h-4" /></button>
             </div>
-            <Button onClick={() => { addToCart(product, size, color, qty); }} className="flex-1 h-12 rounded-full bg-neutral-900 text-white hover:bg-blue-600 hover:text-white font-medium"><ShoppingBag className="w-4 h-4 mr-2" /> Add to Bag</Button>
+            <Button onClick={() => { addToCart(product, size, color, qty); }} className="flex-1 h-12 rounded-full bg-neutral-950 text-white hover:bg-neutral-800 transition duration-300 font-semibold tracking-widest text-xs uppercase"><ShoppingBag className="w-4 h-4 mr-2" /> Add to Bag</Button>
             <button onClick={() => toggleWishlist(product.id)} className="w-12 h-12 rounded-full glass flex items-center justify-center border border-black/10 hover:border-red-400/50">
               <Heart className={`w-5 h-5 ${wishlist.includes(product.id) ? 'fill-red-500 text-red-500' : ''}`} />
             </button>
@@ -844,11 +1456,132 @@ const ProductPage = () => {
 
           <Accordion type="single" collapsible className="border-t border-black/10">
             <AccordionItem value="1" className="border-black/10"><AccordionTrigger>Material & Care</AccordionTrigger><AccordionContent className="text-neutral-600">{product.material} · Machine wash cold · Do not bleach · Iron on low heat</AccordionContent></AccordionItem>
+            {product.features && (
+              <AccordionItem value="features" className="border-black/10">
+                <AccordionTrigger>Product Features</AccordionTrigger>
+                <AccordionContent className="text-neutral-600">
+                  <ul className="list-disc pl-5 space-y-1">
+                    {product.features.map((f, idx) => <li key={idx}>{f}</li>)}
+                  </ul>
+                </AccordionContent>
+              </AccordionItem>
+            )}
             <AccordionItem value="2" className="border-black/10"><AccordionTrigger>Shipping & Returns</AccordionTrigger><AccordionContent className="text-neutral-600">Free shipping above ₹1499. Easy 15-day return. Instant refund on prepaid orders.</AccordionContent></AccordionItem>
             <AccordionItem value="3" className="border-black/10"><AccordionTrigger>Sustainability</AccordionTrigger><AccordionContent className="text-neutral-600">Made in a certified ethical facility in Bengaluru. Recycled packaging.</AccordionContent></AccordionItem>
           </Accordion>
+
+          {/* AI Reviews & Synthesis panel */}
+          <div className="mt-8 bg-neutral-950 text-white rounded-2xl p-6 border border-white/5 relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl from-amber-500/10 to-transparent pointer-events-none" />
+            <div className="flex items-center gap-2 mb-4">
+              <Sparkles className="w-4 h-4 text-amber-500" />
+              <p className="text-xs font-mono uppercase tracking-widest text-amber-500 font-bold">Atelier AI Synthesis</p>
+            </div>
+            <h3 className="text-sm font-semibold tracking-wide uppercase text-neutral-200 mb-2">Patron Sentiment Highlights</h3>
+            
+            {loadingSummary ? (
+              <div className="space-y-2 py-2">
+                <div className="h-3 w-3/4 bg-white/5 rounded animate-pulse" />
+                <div className="h-3 w-5/6 bg-white/5 rounded animate-pulse" />
+                <div className="h-3 w-2/3 bg-white/5 rounded animate-pulse" />
+              </div>
+            ) : reviewSummary ? (
+              <div className="space-y-4">
+                <ul className="space-y-2 text-xs text-neutral-400 font-light">
+                  {reviewSummary.bullets?.map((b, idx) => (
+                    <li key={idx} className="flex items-start gap-2">
+                      <span className="text-amber-500 font-bold flex-shrink-0">✦</span>
+                      <span>{b.replace(/^✓\s*/, '')}</span>
+                    </li>
+                  ))}
+                </ul>
+                <p className="text-xs text-neutral-300 italic font-light border-t border-white/5 pt-3">
+                  "{reviewSummary.summary}"
+                </p>
+              </div>
+            ) : (
+              <p className="text-xs text-neutral-400 font-light">Patrons highly praise this limited-run curation for its exquisite drapery retention and timeless craft.</p>
+            )}
+          </div>
         </div>
       </div>
+
+      {/* AI Complete the Look Lookbook section */}
+      <div className="mt-24 border-t border-black/5 pt-20">
+        <div className="max-w-2xl mb-12">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-neutral-100 border border-black/5 text-neutral-600 mb-4">
+            <Sparkles className="w-3 h-3 text-amber-600 animate-pulse" />
+            <span className="text-[9px] font-mono uppercase tracking-widest font-bold">Atelier Concierge Curation</span>
+          </div>
+          <h2 className="text-3xl font-display font-medium tracking-tight">Atelier Lookbook: Complete the Look</h2>
+          <p className="text-neutral-500 text-sm font-light mt-2 leading-relaxed font-serif-lux italic">
+            Our AI stylist Vera has meticulously selected these bespoke accents to complete your ethnic ensemble.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+          {[
+            { id: 'acc-dupatta', name: 'Zari Embroidered Organza Dupatta', price: 1499, image: 'https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3wxMTgwOTN8MHwxfHNlYXJjaHw0fHxpbmRpYW4lMjBzYXJlZXxlbnwwfHx8fDE3ODMxMzg2NDN8MA&ixlib=rb-4.1.0&q=80&w=400', category: 'DUPATTA', color: 'Ivory Silk', size: 'One Size' },
+            { id: 'acc-jewelry', name: 'Kundan Polki Jhumka Earrings', price: 1899, image: 'https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3wxMTgwOTN8MHwxfHNlYXJjaHwyfHxpbmRpYW4lMjBqZXdlbHJ5fGVufDB8fHx8MTc4MzEzODY0M3ww&ixlib=rb-4.1.0&q=80&w=400', category: 'ATELIER JEWELRY', color: 'Gold Polish', size: 'One Size' },
+            { id: 'acc-clutch', name: 'Velvet Embellished Clutch', price: 2499, image: 'https://images.unsplash.com/photo-1566150905458-1bf1fc15aae9?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3wxMTgwOTN8MHwxfHNlYXJjaHwyfHxsdXh1cnklMjBiYWd8ZW58MHx8fHwxNzgzMTM4NjQzfDA&ixlib=rb-4.1.0&q=80&w=400', category: 'HANDBAG', color: 'Void Black', size: 'One Size' },
+            { id: 'acc-mojaris', name: 'Mirror-work Velvet Mojaris', price: 1999, image: 'https://images.unsplash.com/photo-1543163521-1bf539c55dd2?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3wxMTgwOTN8MHwxfHNlYXJjaHwzfHxzaG9lc3xlbnwwfHx8fDE3ODMxMzg2NDN8MA&ixlib=rb-4.1.0&q=80&w=400', category: 'FOOTWEAR', color: 'Champagne Gold', size: '7' }
+          ].map((acc) => {
+            const isAdded = addedAccessories[acc.id]
+            return (
+              <div key={acc.id} className="group flex flex-col bg-[#fcfbf9] border border-black/5 rounded-3xl p-3 hover:shadow-lg transition duration-500">
+                <div className="aspect-[3/4] rounded-2xl overflow-hidden bg-neutral-100 mb-4 relative">
+                  <img src={acc.image} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" alt={acc.name} />
+                  <span className="absolute top-3 left-3 bg-neutral-950 text-white text-[8px] font-mono tracking-widest px-2.5 py-1 rounded-full">{acc.category}</span>
+                </div>
+                <div className="flex-1 flex flex-col justify-between">
+                  <div>
+                    <h4 className="text-sm font-semibold text-neutral-900 leading-tight mb-1">{acc.name}</h4>
+                    <p className="text-xs text-neutral-500 font-mono mb-3">{fmt(acc.price)}</p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      addToCart({
+                        id: acc.id,
+                        name: acc.name,
+                        price: acc.price,
+                        images: [acc.image],
+                        category: 'Accessories',
+                        sizes: [acc.size],
+                        colors: [acc.color]
+                      }, acc.size, acc.color, 1)
+                      setAddedAccessories(prev => ({ ...prev, [acc.id]: true }))
+                    }}
+                    disabled={isAdded}
+                    className={`w-full py-2.5 rounded-full text-[10px] font-mono tracking-widest uppercase transition duration-300 ${
+                      isAdded 
+                        ? 'bg-neutral-100 text-neutral-400 border border-neutral-200 cursor-not-allowed' 
+                        : 'bg-neutral-950 text-white hover:bg-neutral-800'
+                    }`}
+                  >
+                    {isAdded ? '✓ Added To Bag' : 'Add Accessory'}
+                  </button>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* AI Size recommendation overlay modal */}
+      {showSizeModal && (
+        <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm overflow-y-auto">
+          <div className="relative">
+            <PremiumSizeGuide 
+              onClose={() => setShowSizeModal(false)}
+              onApplySize={(calculatedSize) => {
+                setSize(calculatedSize);
+                setShowSizeModal(false);
+              }}
+              setRoute={setRoute}
+            />
+          </div>
+        </div>
+      )}
       {related.length > 0 && (
         <div className="mt-24">
           <h2 className="text-3xl font-display font-bold mb-8">You may also like</h2>
@@ -1204,9 +1937,14 @@ const CheckoutPage = () => {
   }, [form.pincode])
 
   const applyCoupon = async () => {
-    const r = await fetch('/api/coupon', { method: 'POST', body: JSON.stringify({ code: coupon, subtotal }) }).then(x => x.json())
-    if (r.error) return toast.error(r.error)
-    setApplied(r); toast.success(`${r.label} applied!`)
+    try {
+      const res = await fetch('/api/coupon', { method: 'POST', body: JSON.stringify({ code: coupon, subtotal }) });
+      const r = await res.json().catch(() => ({ error: 'Unable to parse server response' }));
+      if (r.error) return toast.error(r.error)
+      setApplied(r); toast.success(`${r.label} applied!`)
+    } catch (e) {
+      toast.error('Could not apply coupon');
+    }
   }
 
   const handleEditAddress = (addr, e) => {
@@ -1979,9 +2717,14 @@ const TrackOrderPage = () => {
   const track = async (id) => {
     const useId = id || orderId
     if (!useId) return
-    const r = await fetch(`/api/order/${useId}`).then(x => x.json())
-    if (r.error) return toast.error('Order not found')
-    setOrder(r.order)
+    try {
+      const res = await fetch(`/api/order/${useId}`);
+      const r = await res.json().catch(() => ({ error: 'Order not found' }));
+      if (r.error) return toast.error('Order not found')
+      setOrder(r.order)
+    } catch (e) {
+      toast.error('Order not found')
+    }
   }
   useEffect(() => { if (route.orderId) track(route.orderId) }, [route.orderId])
   return (
@@ -2101,18 +2844,10 @@ const FaqPage = () => {
   )
 }
 
-const SizeGuidePage = () => (
-  <StaticPage title="Size Guide" subtitle="MEASUREMENTS">
-    <p>Velora silhouettes run oversized. If you prefer a fitted look, size down one.</p>
-    <div className="glass rounded-2xl p-6 border border-black/10 mt-6">
-      <h3 className="font-display font-bold mb-4 text-white">Unisex Tops (inches)</h3>
-      <table className="w-full text-sm">
-        <thead><tr className="text-neutral-500 border-b border-black/10"><th className="text-left py-2">Size</th><th>Chest</th><th>Length</th><th>Shoulder</th></tr></thead>
-        <tbody>{[['S', 44, 27, 20], ['M', 46, 28, 21], ['L', 48, 29, 22], ['XL', 50, 30, 23], ['XXL', 52, 31, 24]].map(r => <tr key={r[0]} className="border-b border-black/5"><td className="py-2 font-medium text-white">{r[0]}</td><td className="text-center">{r[1]}</td><td className="text-center">{r[2]}</td><td className="text-center">{r[3]}</td></tr>)}</tbody>
-      </table>
-    </div>
-  </StaticPage>
-)
+const SizeGuidePage = () => {
+  const { setRoute } = useShop()
+  return <PremiumSizeGuide onClose={() => setRoute({ view: 'home' })} setRoute={setRoute} />
+}
 
 const PolicyPage = ({ title }) => (
   <StaticPage title={title} subtitle="LEGAL">
@@ -2143,6 +2878,7 @@ const QUICK_OPTIONS = [
 
 const AIChatWidget = () => {
   const [open, setOpen] = useState(false)
+  const { products, setRoute } = useShop()
   const [messages, setMessages] = useState([
     { role: 'assistant', content: "Hi ✨ I'm **Vera**, your Velora AI concierge. I can help with sizing, orders, returns, payments and styling — powered by Gemini. How can I help today?" }
   ])
@@ -2177,7 +2913,11 @@ const AIChatWidget = () => {
         body: JSON.stringify({ sessionId, message: q })
       })
       const data = await res.json()
-      setMessages(prev => [...prev, { role: 'assistant', content: data.reply || "I'm having trouble responding right now. Try again in a moment?" }])
+      setMessages(prev => [...prev, { 
+        role: 'assistant', 
+        content: data.reply || "I'm having trouble responding right now. Try again in a moment?",
+        recommendations: data.recommendations || []
+      }])
     } catch (e) {
       setMessages(prev => [...prev, { role: 'assistant', content: "Network issue — please try again." }])
     } finally { setLoading(false) }
@@ -2189,10 +2929,10 @@ const AIChatWidget = () => {
         <motion.button
           initial={{ scale: 0, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ delay: 0.6, type: 'spring' }}
           onClick={() => setOpen(true)}
-          className="fixed bottom-6 right-6 z-[70] w-16 h-16 rounded-full bg-neutral-900 text-white shadow-2xl flex items-center justify-center hover:bg-blue-600 transition-all group pulse-glow"
+          className="fixed bottom-6 right-6 z-[70] w-16 h-16 rounded-full bg-neutral-950 text-white shadow-2xl flex items-center justify-center hover:bg-neutral-900 transition-all group border border-white/15"
         >
-          <MessageCircle className="w-6 h-6 group-hover:scale-110 transition" />
-          <span className="absolute top-0 right-0 w-3.5 h-3.5 rounded-full bg-emerald-400 border-2 border-white" />
+          <MessageCircle className="w-6 h-6 group-hover:scale-110 transition text-white" />
+          <span className="absolute top-0 right-0 w-3.5 h-3.5 rounded-full bg-neutral-300 border-2 border-neutral-950" />
         </motion.button>
       )}
       <AnimatePresence>
@@ -2204,14 +2944,13 @@ const AIChatWidget = () => {
           >
             {/* Header */}
             <div className="bg-neutral-950 text-white p-4 flex items-center gap-3 relative overflow-hidden">
-              <div className="aurora opacity-30" />
-              <div className="relative w-11 h-11 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
-                <Bot className="w-5 h-5" />
-                <span className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-emerald-400 border-2 border-neutral-950" />
+              <div className="relative w-11 h-11 rounded-full bg-neutral-900 border border-white/10 flex items-center justify-center">
+                <Bot className="w-5 h-5 text-neutral-300" />
+                <span className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-neutral-300 border-2 border-neutral-950" />
               </div>
               <div className="relative flex-1">
                 <p className="font-semibold text-sm">Vera · Velora Concierge</p>
-                <p className="text-[11px] text-white/60 flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-emerald-400" /> AI-powered · Usually replies instantly</p>
+                <p className="text-[11px] text-white/60 flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-neutral-300" /> Stylist Concierge · Usually replies instantly</p>
               </div>
               <button onClick={() => setOpen(false)} className="relative w-8 h-8 rounded-full hover:bg-white/10 flex items-center justify-center"><X className="w-4 h-4" /></button>
             </div>
@@ -2219,16 +2958,50 @@ const AIChatWidget = () => {
             {/* Messages */}
             <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-3 bg-[#fafaf9]">
               {messages.map((m, i) => (
-                <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                  {m.role === 'assistant' && <div className="w-7 h-7 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex-shrink-0 flex items-center justify-center mr-2 mt-1"><Bot className="w-3.5 h-3.5 text-white" /></div>}
-                  <div className={`max-w-[80%] px-3.5 py-2.5 rounded-2xl text-sm bubble-in ${m.role === 'user' ? 'bg-neutral-900 text-white rounded-br-md' : 'bg-white border border-black/5 text-neutral-800 rounded-bl-md shadow-sm'}`}>
-                    <div dangerouslySetInnerHTML={{ __html: m.content.replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/\n/g, '<br/>') }} />
+                <div key={i} className="space-y-2">
+                  <div className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                    {m.role === 'assistant' && (
+                      <div className="w-7 h-7 rounded-full bg-neutral-900 border border-white/10 flex-shrink-0 flex items-center justify-center mr-2 mt-1">
+                        <Bot className="w-3.5 h-3.5 text-neutral-300" />
+                      </div>
+                    )}
+                    <div className={`max-w-[80%] px-3.5 py-2.5 rounded-2xl text-sm bubble-in ${m.role === 'user' ? 'bg-neutral-950 text-white rounded-br-md' : 'bg-white border border-black/5 text-neutral-800 rounded-bl-md shadow-sm'}`}>
+                      <div dangerouslySetInnerHTML={{ __html: m.content.replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/\n/g, '<br/>') }} />
+                    </div>
                   </div>
+
+                  {/* Recommendations renderer */}
+                  {m.role === 'assistant' && m.recommendations && m.recommendations.length > 0 && (
+                    <div className="mt-2 pl-9 pr-2 space-y-2">
+                      {m.recommendations.map(recId => {
+                        const p = products?.find(prod => prod.id === recId)
+                        if (!p) return null
+                        return (
+                          <div key={recId} className="flex gap-3 bg-white border border-black/5 rounded-2xl p-2.5 shadow-sm hover:shadow-md transition duration-300">
+                            <img src={p.images?.[0]} className="w-16 h-20 object-cover rounded-xl bg-neutral-100 flex-shrink-0" alt="" />
+                            <div className="flex-1 min-w-0 flex flex-col justify-between py-0.5">
+                              <div>
+                                <p className="text-[9px] font-mono tracking-widest text-neutral-400 uppercase font-bold">STYLING SELECTION</p>
+                                <h4 className="text-xs font-semibold text-neutral-800 truncate mt-0.5">{p.name}</h4>
+                                <p className="text-xs font-medium text-neutral-500 mt-0.5">{fmt(p.price)}</p>
+                              </div>
+                              <button 
+                                onClick={() => { setOpen(false); setRoute({ view: 'product', id: p.id }); }} 
+                                className="w-fit text-[11px] font-semibold text-neutral-900 border-b border-neutral-900 pb-px hover:text-neutral-500 hover:border-neutral-500 transition"
+                              >
+                                View Detailed Details
+                              </button>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
                 </div>
               ))}
               {loading && (
                 <div className="flex justify-start">
-                  <div className="w-7 h-7 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex-shrink-0 flex items-center justify-center mr-2 mt-1"><Bot className="w-3.5 h-3.5 text-white" /></div>
+                  <div className="w-7 h-7 rounded-full bg-neutral-900 border border-white/10 flex-shrink-0 flex items-center justify-center mr-2 mt-1"><Bot className="w-3.5 h-3.5 text-neutral-300" /></div>
                   <div className="bg-white border border-black/5 px-4 py-3 rounded-2xl shadow-sm flex gap-1">
                     <span className="w-1.5 h-1.5 rounded-full bg-neutral-400 animate-bounce" style={{ animationDelay: '0ms' }} />
                     <span className="w-1.5 h-1.5 rounded-full bg-neutral-400 animate-bounce" style={{ animationDelay: '150ms' }} />
@@ -2240,18 +3013,18 @@ const AIChatWidget = () => {
               {/* Quick options */}
               {showQuick && !loading && (
                 <div className="pt-3">
-                  <p className="text-[11px] tracking-[0.2em] text-neutral-500 mb-2 px-1">QUICK ACTIONS</p>
+                  <p className="text-[11px] tracking-[0.2em] text-neutral-400 mb-2 px-1 font-bold">ATELIER DIRECTORIES</p>
                   <div className="grid grid-cols-2 gap-2">
                     {QUICK_OPTIONS.map(opt => (
-                      <button key={opt.label} onClick={() => send(opt.q)} className="text-left p-3 rounded-xl bg-white border border-black/5 hover:border-blue-400/40 hover:bg-blue-50/50 transition group">
-                        <opt.icon className="w-4 h-4 text-blue-500 mb-1.5" />
-                        <p className="text-xs font-medium text-neutral-800 leading-tight">{opt.label}</p>
+                      <button key={opt.label} onClick={() => send(opt.q)} className="text-left p-3 rounded-xl bg-white border border-black/5 hover:border-neutral-950 hover:bg-neutral-50/50 transition group">
+                        <opt.icon className="w-4 h-4 text-neutral-900 mb-1.5" />
+                        <p className="text-xs font-semibold text-neutral-800 leading-tight">{opt.label}</p>
                       </button>
                     ))}
                   </div>
                   <div className="mt-3 grid grid-cols-2 gap-2">
-                    <a href="tel:+918040005000" className="text-xs flex items-center gap-1.5 px-3 py-2 rounded-full bg-neutral-900 text-white justify-center hover:bg-blue-600 transition"><Phone className="w-3 h-3" /> Call us</a>
-                    <a href="mailto:hello@velora.in" className="text-xs flex items-center gap-1.5 px-3 py-2 rounded-full bg-white border border-black/10 justify-center hover:border-blue-400 transition"><Mail className="w-3 h-3" /> Email</a>
+                    <a href="tel:+918040005000" className="text-xs flex items-center gap-1.5 px-3 py-2 rounded-full bg-neutral-950 text-white justify-center hover:bg-neutral-900 transition font-medium"><Phone className="w-3 h-3" /> Call Us</a>
+                    <a href="mailto:hello@velora.in" className="text-xs flex items-center gap-1.5 px-3 py-2 rounded-full bg-white border border-black/10 justify-center hover:border-black transition font-medium"><Mail className="w-3 h-3" /> Email Us</a>
                   </div>
                 </div>
               )}
@@ -2264,14 +3037,14 @@ const AIChatWidget = () => {
                   value={input}
                   onChange={e => setInput(e.target.value)}
                   onKeyDown={e => { if (e.key === 'Enter') send() }}
-                  placeholder="Ask about anything..."
+                  placeholder="Inquire with Vera..."
                   className="flex-1 bg-transparent outline-none text-sm placeholder:text-neutral-400"
                 />
-                <button onClick={() => send()} disabled={loading || !input.trim()} className="w-9 h-9 rounded-full bg-neutral-900 text-white flex items-center justify-center hover:bg-blue-600 disabled:opacity-40 transition">
-                  {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                <button onClick={() => send()} disabled={loading || !input.trim()} className="w-9 h-9 rounded-full bg-neutral-950 text-white flex items-center justify-center hover:bg-neutral-900 disabled:opacity-40 transition">
+                  {loading ? <Loader2 className="w-4 h-4 animate-spin text-white" /> : <Send className="w-4 h-4 text-white" />}
                 </button>
               </div>
-              <p className="text-[10px] text-neutral-400 text-center mt-2">Powered by Gemini · Velora may make mistakes · <button onClick={() => { setMessages([messages[0]]); setShowQuick(true) }} className="underline hover:text-blue-500">Reset chat</button></p>
+              <p className="text-[10px] text-neutral-400 text-center mt-2">Powered by Gemini · Velora Concierge · <button onClick={() => { setMessages([messages[0]]); setShowQuick(true) }} className="underline hover:text-neutral-950">Reset Dialogue</button></p>
             </div>
           </motion.div>
         )}
@@ -2390,6 +3163,8 @@ const App = () => {
   const [searchOpen, setSearchOpen] = useState(false)
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [cartOpen, setCartOpen] = useState(false)
+  const [loaderComplete, setLoaderComplete] = useState(false)
  
   // Offline support states
   const [isOffline, setIsOffline] = useState(false)
@@ -2441,27 +3216,43 @@ const App = () => {
   }, [])
  
   useEffect(() => {
-    // Fetch products with offline fallback
-    fetch('/api/products')
-      .then(r => r.json())
-      .then(d => {
-        const prodList = d.products || []
-        setProducts(prodList)
-        setLoading(false)
-        try {
-          localStorage.setItem('velora_products_cache', JSON.stringify(prodList))
-        } catch (e) {}
-      })
-      .catch(err => {
-        console.error("Fetch products failed, loading from local cache fallback", err)
-        try {
-          const cached = JSON.parse(localStorage.getItem('velora_products_cache') || '[]')
-          if (cached.length > 0) {
-            setProducts(cached)
+    // Fetch products with resilient retries and offline fallback
+    const fetchProductsResilient = (attemptsLeft = 3, delayMs = 1500) => {
+      fetch('/api/products')
+        .then(r => {
+          if (!r.ok) {
+            throw new Error(`HTTP status ${r.status}`);
           }
-        } catch (e) {}
-        setLoading(false)
-      })
+          return r.json();
+        })
+        .then(d => {
+          const prodList = d.products || []
+          setProducts(prodList)
+          setLoading(false)
+          try {
+            localStorage.setItem('velora_products_cache', JSON.stringify(prodList))
+          } catch (e) {}
+        })
+        .catch(err => {
+          if (attemptsLeft > 0) {
+            console.warn(`Fetch products failed, retrying in ${delayMs}ms (${attemptsLeft} attempts left)...`, err);
+            setTimeout(() => {
+              fetchProductsResilient(attemptsLeft - 1, delayMs * 1.5);
+            }, delayMs);
+          } else {
+            console.error("Fetch products failed after all attempts, loading from local cache fallback", err)
+            try {
+              const cached = JSON.parse(localStorage.getItem('velora_products_cache') || '[]')
+              if (cached.length > 0) {
+                setProducts(cached)
+              }
+            } catch (e) {}
+            setLoading(false)
+          }
+        });
+    };
+
+    fetchProductsResilient(3, 1500);
  
     try {
       const savedCart = JSON.parse(localStorage.getItem('velora_cart') || '[]')
@@ -2545,7 +3336,9 @@ const App = () => {
     setMobileNavOpen,
     isOffline,
     recentlyViewed,
-    addRecentlyViewed
+    addRecentlyViewed,
+    cartOpen,
+    setCartOpen
   }
  
   const view = route.view || 'home'
@@ -2560,13 +3353,19 @@ const App = () => {
   if (loading) return (
     <div className="fixed inset-0 flex flex-col items-center justify-center bg-[#fafaf9]">
       <VeloraLogo size="xl" />
-      <div className="mt-8 w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full spin-slow" />
+      <div className="mt-8 w-8 h-8 border-2 border-amber-500 border-t-transparent rounded-full spin-slow" />
       <p className="mt-4 text-xs tracking-[0.3em] text-neutral-500">LOADING THE FUTURE</p>
     </div>
   )
  
   return (
     <ShopCtx.Provider value={ctx}>
+      <AnimatePresence>
+        {!loaderComplete && (
+          <CinematicLoader onComplete={() => setLoaderComplete(true)} />
+        )}
+      </AnimatePresence>
+
       <div className="min-h-screen bg-[#fafaf9] noise relative">
         <Header />
         
@@ -2581,6 +3380,7 @@ const App = () => {
         <Footer />
         <SearchOverlay />
         <AIChatWidget />
+        <MiniCart useShop={useShop} />
  
         {/* Realistic luxury storefront shutter overlay */}
         <VeloraOfflineShutter isOpen={shutterOpen} />

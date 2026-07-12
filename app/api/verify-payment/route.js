@@ -1,7 +1,12 @@
 import { NextResponse } from "next/server";
 import crypto from "crypto";
 import { getDb, validateEnv } from "@/lib/server-init";
-import { cleanDoc } from "@/app/api/[[...path]]/route";
+
+function cleanDoc(doc) {
+  if (!doc) return doc;
+  const { _id, ...rest } = doc;
+  return rest;
+}
 
 export const dynamic = "force-dynamic";
 
