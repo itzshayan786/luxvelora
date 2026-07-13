@@ -423,6 +423,26 @@ export default function PremiumAccount({ useShop }) {
     { id: 3, title: 'New Nebula Stock Arrived', desc: 'The Nebula Oversized Hoodie in Void Black is now fully restocked in our Bengaluru atelier.', date: 'Yesterday', read: true }
   ])
 
+  // Saved Measurements State
+  const [measurements, setMeasurements] = useState({
+    bust: '36',
+    waist: '30',
+    hips: '38',
+    height: '165',
+    shoulder: '15',
+    sleeve: '18'
+  })
+
+  // Gift Studio history sessions
+  const [giftSessions, setGiftSessions] = useState([])
+
+  // Coupons State
+  const [coupons, setCoupons] = useState([
+    { code: 'VELORA20', discount: '20% OFF', desc: 'Enjoy 20% off on all premium handloom sarees and kurtas.', status: 'Active', expiry: '31 Aug 2026' },
+    { code: 'COUTURE10', discount: '10% OFF', desc: 'Secure 10% off custom tailored luxury silk collections.', status: 'Active', expiry: '31 Dec 2026' },
+    { code: 'ATELIER15', discount: '15% OFF', desc: 'Exclusive flat 15% privilege coupon for being a registered member.', status: 'Active', expiry: '30 Sep 2026' },
+  ])
+
   // Fetch orders and other saved items
   useEffect(() => {
     if (user?.email) {
@@ -454,6 +474,14 @@ export default function PremiumAccount({ useShop }) {
         setTickets(savedTickets.length > 0 ? savedTickets : [
           { id: 'TKT-9024', subject: 'Inquiry regarding Nebula sizing', category: 'sizing', date: '2 days ago', status: 'Resolved', message: 'Hi there, I wanted to know if Nebula hoodie runs too oversized?' }
         ])
+
+        const savedMeas = JSON.parse(localStorage.getItem(`velora_measurements_${user.email}`) || 'null')
+        if (savedMeas) {
+          setMeasurements(savedMeas)
+        }
+
+        const savedGft = JSON.parse(localStorage.getItem(`velora_gift_sessions_${user.email}`) || '[]')
+        setGiftSessions(savedGft)
       } catch (e) {
         console.warn(e)
       }
@@ -704,9 +732,12 @@ export default function PremiumAccount({ useShop }) {
             {[
               { id: 'orders', label: 'ORDER HISTORY', icon: Package },
               { id: 'wishlist', label: 'MY WISHLIST', icon: Heart },
-              { id: 'profile', label: 'PROFILE DETAILS', icon: User },
+              { id: 'rewards', label: 'VELORA CLUB & REWARDS', icon: Award },
+              { id: 'coupons', label: 'EXCLUSIVE COUPONS', icon: Tag },
+              { id: 'measurements', label: 'SAVED MEASUREMENTS', icon: Sliders },
+              { id: 'gift-sessions', label: 'GIFT STUDIO SESSIONS', icon: Clock },
               { id: 'addresses', label: 'SAVED ADDRESSES', icon: MapPin },
-              { id: 'payments', label: 'SAVED CARDS', icon: CreditCard },
+              { id: 'profile', label: 'PROFILE DETAILS', icon: User },
               { id: 'notifications', label: 'NOTIFICATIONS', icon: Bell },
               { id: 'support', label: 'CUSTOMER SUPPORT', icon: HelpCircle },
               { id: 'settings', label: 'SETTINGS', icon: Sliders },
@@ -1756,6 +1787,287 @@ export default function PremiumAccount({ useShop }) {
                       </label>
                     </div>
                   </div>
+                </div>
+              )}
+
+              {/* VELORA CLUB & REWARDS PANEL */}
+              {activeTab === 'rewards' && (
+                <div className="space-y-8">
+                  <div className="border-b border-neutral-100 pb-4 flex justify-between items-center">
+                    <div>
+                      <h2 className="text-lg font-display tracking-wide uppercase text-neutral-950">VELORA CLUB</h2>
+                      <p className="text-xs text-neutral-400 mt-1">Exclusive tier progress and personalized boutique rewards.</p>
+                    </div>
+                    <Button 
+                      onClick={() => setRoute({ view: 'club' })}
+                      className="rounded-none bg-neutral-950 text-white hover:bg-neutral-800 text-[10px] tracking-widest font-semibold uppercase px-4 h-8"
+                    >
+                      VIEW CLUB DETAILS
+                    </Button>
+                  </div>
+
+                  {/* Tier status indicator cards */}
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    {[
+                      { name: 'Member', pts: 'Entry level', active: (user?.rewards || 100) < 1000 },
+                      { name: 'Silver', pts: '1,000 pts', active: (user?.rewards || 100) >= 1000 && (user?.rewards || 100) < 3000 },
+                      { name: 'Gold', pts: '3,000 pts', active: (user?.rewards || 100) >= 3000 && (user?.rewards || 100) < 5000 },
+                      { name: 'Platinum', pts: '5,000+ pts', active: (user?.rewards || 100) >= 5000 },
+                    ].map((t, idx) => {
+                      const isUnlocked = (idx === 0) || 
+                        (idx === 1 && (user?.rewards || 100) >= 1000) ||
+                        (idx === 2 && (user?.rewards || 100) >= 3000) ||
+                        (idx === 3 && (user?.rewards || 100) >= 5000);
+                      return (
+                        <div key={t.name} className={`p-4 border rounded-none transition-all ${
+                          t.active 
+                            ? 'bg-neutral-950 text-white border-neutral-950 shadow-sm' 
+                            : 'bg-white border-neutral-100'
+                        }`}>
+                          <div className="flex justify-between items-center">
+                            <span className="text-[9px] tracking-wider uppercase font-mono font-medium opacity-60">{t.pts}</span>
+                            {isUnlocked && <Check className={`w-3.5 h-3.5 ${t.active ? 'text-white' : 'text-neutral-900'}`} />}
+                          </div>
+                          <h3 className="text-sm font-semibold tracking-wider uppercase mt-2">{t.name}</h3>
+                          <p className="text-[10px] opacity-70 mt-1">
+                            {t.active ? 'Your Current Level' : isUnlocked ? 'Unlocked' : 'Locked'}
+                          </p>
+                        </div>
+                      )
+                    })}
+                  </div>
+
+                  {/* Points breakdown summary */}
+                  <div className="border border-neutral-150 p-6 space-y-4">
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <span className="text-[9px] font-mono tracking-widest text-neutral-400 block">TOTAL ACCUMULATED VALUE</span>
+                        <span className="text-2xl font-display font-semibold mt-1 block text-neutral-950">{user?.rewards || 100} Points</span>
+                      </div>
+                      <span className="text-xs text-neutral-500 max-w-[200px] text-right">
+                        {(user?.rewards || 100) < 1000 ? `${1000 - (user?.rewards || 100)} pts to Silver Tier` :
+                         (user?.rewards || 100) < 3000 ? `${3000 - (user?.rewards || 100)} pts to Gold Tier` :
+                         (user?.rewards || 100) < 5000 ? `${5000 - (user?.rewards || 100)} pts to Platinum Tier` :
+                         'You have achieved our highest Platinum tier'}
+                      </span>
+                    </div>
+                    {/* Progress slider */}
+                    <div className="w-full bg-neutral-100 h-1 rounded-none overflow-hidden">
+                      <div 
+                        className="bg-neutral-950 h-full rounded-none transition-all duration-300" 
+                        style={{ 
+                          width: `${Math.min(100, ((user?.rewards || 100) / 5000) * 100)}%` 
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Ledger Account Statement table (quiet bank statement style) */}
+                  <div className="space-y-3">
+                    <h3 className="text-[10px] tracking-[0.2em] font-bold text-neutral-400 uppercase font-mono">TRANSACTION HISTORY LEDGER</h3>
+                    <div className="border border-neutral-100 overflow-x-auto rounded-none">
+                      <table className="w-full text-left border-collapse">
+                        <thead>
+                          <tr className="border-b border-neutral-100 bg-neutral-50/50">
+                            <th className="p-3 text-[10px] font-semibold text-neutral-400 uppercase tracking-widest font-mono">Date</th>
+                            <th className="p-3 text-[10px] font-semibold text-neutral-400 uppercase tracking-widest font-mono">Reference Details</th>
+                            <th className="p-3 text-[10px] font-semibold text-neutral-400 uppercase tracking-widest font-mono">Status</th>
+                            <th className="p-3 text-[10px] font-semibold text-neutral-400 uppercase tracking-widest font-mono text-right">Balance</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-neutral-100 text-xs text-neutral-600">
+                          <tr>
+                            <td className="p-3 font-mono">13 Jul 2026</td>
+                            <td className="p-3">Welcome gesture - VELORA Club activation</td>
+                            <td className="p-3 text-green-600">Credit</td>
+                            <td className="p-3 font-mono text-right text-neutral-900">+100 pts</td>
+                          </tr>
+                          {orders.map(o => (
+                            <tr key={o.id}>
+                              <td className="p-3 font-mono">{new Date(o.createdAt || Date.now()).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</td>
+                              <td className="p-3">Acquisition - Order #{o.id?.slice(-8).toUpperCase()}</td>
+                              <td className="p-3 text-green-600">Credit</td>
+                              <td className="p-3 font-mono text-right text-neutral-900">+{Math.floor(o.totalPrice / 10)} pts</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* COUPONS PANEL */}
+              {activeTab === 'coupons' && (
+                <div className="space-y-6">
+                  <div className="border-b border-neutral-100 pb-4">
+                    <h2 className="text-lg font-display tracking-wide uppercase text-neutral-950">MY COUPONS</h2>
+                    <p className="text-xs text-neutral-400 mt-1">Exclusive promotion certificates for your next premium acquisition.</p>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {coupons.map(coupon => (
+                      <div key={coupon.code} className="border border-neutral-150 p-6 flex flex-col justify-between space-y-4 bg-white hover:border-neutral-950 transition-colors">
+                        <div>
+                          <div className="flex justify-between items-start">
+                            <span className="text-lg font-display font-semibold text-neutral-950">{coupon.discount}</span>
+                            <span className="text-[9px] font-mono bg-neutral-100 px-2.5 py-1 text-neutral-600 uppercase tracking-wider">
+                              {coupon.status}
+                            </span>
+                          </div>
+                          <p className="text-xs text-neutral-500 mt-2 leading-relaxed">
+                            {coupon.desc}
+                          </p>
+                        </div>
+                        <div className="flex justify-between items-center border-t border-neutral-100 pt-4">
+                          <span className="text-[10px] font-mono text-neutral-400">EXPIRY: {coupon.expiry}</span>
+                          <button
+                            onClick={() => {
+                              navigator.clipboard.writeText(coupon.code);
+                              toast.success(`Coupon code ${coupon.code} copied to clipboard`);
+                            }}
+                            className="text-[10px] tracking-widest font-bold text-neutral-950 hover:text-neutral-500 uppercase flex items-center gap-1.5 transition-colors"
+                          >
+                            <Tag className="w-3.5 h-3.5" />
+                            COPY CODE ({coupon.code})
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* SAVED MEASUREMENTS PANEL */}
+              {activeTab === 'measurements' && (
+                <div className="space-y-6">
+                  <div className="border-b border-neutral-100 pb-4">
+                    <h2 className="text-lg font-display tracking-wide uppercase text-neutral-950">SAVED MEASUREMENTS</h2>
+                    <p className="text-xs text-neutral-400 mt-1">Define your precise tailorship profile to experience seamless custom fits with every order.</p>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {[
+                      { field: 'bust', label: 'BUST SIZING', unit: 'inches', desc: 'Measure around the fullest part of your chest.' },
+                      { field: 'waist', label: 'WAIST SIZING', unit: 'inches', desc: 'Measure around your natural waistline, keeping tape loose.' },
+                      { field: 'hips', label: 'HIPS SIZING', unit: 'inches', desc: 'Measure around the fullest part of your hips.' },
+                      { field: 'height', label: 'TOTAL HEIGHT', unit: 'cm', desc: 'Stand straight against a flat surface.' },
+                      { field: 'shoulder', label: 'SHOULDER LENGTH', unit: 'inches', desc: 'Measure from one shoulder seam point to another.' },
+                      { field: 'sleeve', label: 'SLEEVE LENGTH', unit: 'inches', desc: 'Measure from shoulder seam to your wrist edge.' },
+                    ].map(item => (
+                      <div key={item.field} className="space-y-2 border border-neutral-100 p-5 bg-neutral-50/20">
+                        <div className="flex justify-between items-center">
+                          <label className="text-[10px] tracking-widest font-semibold text-neutral-400 uppercase font-mono">{item.label}</label>
+                          <span className="text-xs font-semibold text-neutral-950 font-mono">{measurements[item.field] || '—'} {item.unit}</span>
+                        </div>
+                        <input 
+                          type="range"
+                          min={item.field === 'height' ? '120' : '10'}
+                          max={item.field === 'height' ? '210' : '60'}
+                          value={measurements[item.field] || (item.field === 'height' ? '165' : '30')}
+                          onChange={e => setMeasurements({ ...measurements, [item.field]: e.target.value })}
+                          className="w-full accent-neutral-950 h-1 cursor-pointer bg-neutral-200 outline-none"
+                        />
+                        <p className="text-[10px] text-neutral-400 leading-normal mt-1">
+                          {item.desc}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="pt-4 border-t border-neutral-100 flex justify-end">
+                    <Button
+                      onClick={() => {
+                        localStorage.setItem(`velora_measurements_${user?.email}`, JSON.stringify(measurements));
+                        toast.success('Your boutique custom measurements are saved safely.');
+                      }}
+                      className="rounded-none bg-neutral-950 text-white hover:bg-neutral-800 text-xs tracking-widest font-semibold px-8 h-11 uppercase"
+                    >
+                      SAVE ATELIER MEASUREMENTS
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {/* SAVED GIFT STUDIO SESSIONS PANEL */}
+              {activeTab === 'gift-sessions' && (
+                <div className="space-y-6">
+                  <div className="border-b border-neutral-100 pb-4">
+                    <h2 className="text-lg font-display tracking-wide uppercase text-neutral-950">GIFT STUDIO HISTORY</h2>
+                    <p className="text-xs text-neutral-400 mt-1">Review your past digital concierge consultations and saved gift finder recommendations.</p>
+                  </div>
+
+                  {giftSessions.length === 0 ? (
+                    <div className="text-center py-16 space-y-4 border border-neutral-100 bg-neutral-50/20">
+                      <Clock className="w-12 h-12 text-neutral-200 mx-auto" />
+                      <div>
+                        <h3 className="text-sm font-medium uppercase tracking-wider text-neutral-900">No Gift Consultations</h3>
+                        <p className="text-xs text-neutral-400 mt-1">Complete the AI Gift Finder search to record personalized findings.</p>
+                      </div>
+                      <Button
+                        onClick={() => {
+                          setRoute({ view: 'shop' });
+                          toast.info("Please trigger the AI Gift Finder banner to begin a session.");
+                        }}
+                        className="rounded-none bg-neutral-950 text-white hover:bg-neutral-800 text-xs tracking-widest font-semibold px-6 h-10"
+                      >
+                        LAUNCH FINDER
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {giftSessions.map((session) => (
+                        <div key={session.id} className="border border-neutral-150 p-6 space-y-4 bg-white hover:border-neutral-950 transition-colors">
+                          <div className="flex justify-between items-start border-b border-neutral-100 pb-3">
+                            <div>
+                              <span className="text-[9px] font-mono text-neutral-400 uppercase">SESSION ID: {session.id}</span>
+                              <h3 className="text-xs font-semibold uppercase text-neutral-950 mt-1">
+                                Gift for {session.selections?.recipient || 'Someone'}
+                              </h3>
+                            </div>
+                            <span className="text-[10px] font-mono text-neutral-400">{session.date}</span>
+                          </div>
+
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs font-sans">
+                            <div>
+                              <span className="text-[9px] font-mono tracking-wider uppercase text-neutral-400 block">Occasion</span>
+                              <span className="text-neutral-900 font-medium">{session.selections?.occasion || 'General'}</span>
+                            </div>
+                            <div>
+                              <span className="text-[9px] font-mono tracking-wider uppercase text-neutral-400 block">Budget Limit</span>
+                              <span className="text-neutral-900 font-medium">₹{session.selections?.budget === '100000' ? 'No limit' : session.selections?.budget || 'Custom'}</span>
+                            </div>
+                            <div>
+                              <span className="text-[9px] font-mono tracking-wider uppercase text-neutral-400 block">Aesthetic Color</span>
+                              <span className="text-neutral-900 font-medium">{session.selections?.color || 'Any'}</span>
+                            </div>
+                            <div>
+                              <span className="text-[9px] font-mono tracking-wider uppercase text-neutral-400 block">Textile Preference</span>
+                              <span className="text-neutral-900 font-medium">{session.selections?.style || 'Any'}</span>
+                            </div>
+                          </div>
+
+                          <div className="bg-neutral-50 p-4 border border-neutral-100 text-xs text-neutral-600 leading-relaxed italic">
+                            "{session.greeting}"
+                          </div>
+
+                          <div className="flex justify-between items-center pt-2">
+                            <span className="text-[10px] font-mono text-neutral-400">FINDINGS: {session.productsCount || 0} premium matches curated</span>
+                            <button
+                              onClick={() => {
+                                setRoute({ view: 'shop' });
+                                toast.success("Relaunched selection filters in shop!");
+                              }}
+                              className="text-[10px] tracking-widest font-bold text-neutral-950 hover:text-neutral-500 uppercase flex items-center gap-1.5 transition-colors"
+                            >
+                              LAUNCH CURATED SHOP
+                              <ChevronRight className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
 

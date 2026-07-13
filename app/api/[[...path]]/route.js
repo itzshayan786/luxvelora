@@ -220,27 +220,136 @@ const SEED_PRODUCTS = [
   }
 ]
 
+function getSizeChartForProduct(product) {
+  // Generate realistic size charts in cm
+  // Standard ethnic wear sizes: XS, S, M, L, XL, XXL
+  const baseCharts = {
+    'XS': { chest: 84, waist: 68, hip: 92, shoulder: 36, height: 155 },
+    'S': { chest: 88, waist: 72, hip: 96, shoulder: 37, height: 160 },
+    'M': { chest: 92, waist: 76, hip: 100, shoulder: 38, height: 165 },
+    'L': { chest: 96, waist: 82, hip: 104, shoulder: 39, height: 170 },
+    'XL': { chest: 100, waist: 88, hip: 110, shoulder: 40.5, height: 175 },
+    'XXL': { chest: 104, waist: 94, hip: 116, shoulder: 42, height: 180 }
+  };
+
+  // Create a deep copy of base charts
+  const charts = JSON.parse(JSON.stringify(baseCharts));
+
+  // If product is a flared Anarkali (p1) or velvet tunic (p3), let's make hip flared
+  if (product.id === 'p1' || product.id === 'p3') {
+    Object.keys(charts).forEach(sz => {
+      charts[sz].hip += 12; // Flared hip room
+    });
+  }
+  
+  // If product is straight-fit (p13) or linen (p12), let's keep standard or tighter
+  if (product.id === 'p12') {
+    Object.keys(charts).forEach(sz => {
+      charts[sz].chest -= 2; // Snugger linen fit
+      charts[sz].waist -= 2;
+    });
+  }
+
+  // Filter sizeChart to only include sizes that the product actually has
+  const productSizes = product.sizes || ['XS', 'S', 'M', 'L', 'XL', 'XXL'];
+  const filteredChart = {};
+  productSizes.forEach(sz => {
+    if (charts[sz]) {
+      filteredChart[sz] = charts[sz];
+    } else {
+      const numSize = parseInt(sz);
+      if (!isNaN(numSize)) {
+        filteredChart[sz] = {
+          chest: Math.round(numSize * 2.54),
+          waist: Math.round((numSize - 4) * 2.54),
+          hip: Math.round((numSize + 4) * 2.54),
+          shoulder: 38,
+          height: 165
+        };
+      } else {
+        filteredChart[sz] = charts['M']; // Default fallback
+      }
+    }
+  });
+
+  return filteredChart;
+}
+
+function safeJsonParse(text, fallback = null) {
+  if (!text) return fallback;
+  let cleanText = text.trim();
+  
+  // Strip markdown code blocks if present (e.g. ```json ... ```)
+  if (cleanText.startsWith("```")) {
+    cleanText = cleanText.replace(/^```(?:json)?\n?/i, "").replace(/\n?```$/, "").trim();
+  }
+  
+  try {
+    return JSON.parse(cleanText);
+  } catch (e) {
+    console.warn("[VELORA JSON PARSE WARNING] Failed to parse JSON directly. Attempting regex extract:", e);
+    
+    // Attempt to extract the first valid curly braced JSON block
+    const firstBrace = cleanText.indexOf('{');
+    const lastBrace = cleanText.lastIndexOf('}');
+    if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+      try {
+        const extracted = cleanText.substring(firstBrace, lastBrace + 1);
+        return JSON.parse(extracted);
+      } catch (innerErr) {
+        console.error("[VELORA JSON PARSE ERROR] Curly braces extraction parse failed:", innerErr);
+      }
+    }
+    
+    // Attempt to extract the first valid bracketed JSON array
+    const firstBracket = cleanText.indexOf('[');
+    const lastBracket = cleanText.lastIndexOf(']');
+    if (firstBracket !== -1 && lastBracket !== -1 && lastBracket > firstBracket) {
+      try {
+        const extracted = cleanText.substring(firstBracket, lastBracket + 1);
+        return JSON.parse(extracted);
+      } catch (innerErr) {
+        console.error("[VELORA JSON PARSE ERROR] Brackets extraction parse failed:", innerErr);
+      }
+    }
+    
+    return fallback;
+  }
+}
+
 async function seedIfEmpty() {
   const database = await getDb()
   const hasOldHoodies = await database.collection('products').findOne({ name: 'Nebula Oversized Hoodie' })
   if (hasOldHoodies) {
     console.log("[VELORA] Old streetwear products detected. Purging and re-seeding with premium ethnic kurtis.")
     await database.collection('products').deleteMany({})
-    await database.collection('products').insertMany(SEED_PRODUCTS)
+    const productsToSeed = SEED_PRODUCTS.map(p => ({
+      ...p,
+      sizeChart: getSizeChartForProduct(p)
+    }))
+    await database.collection('products').insertMany(productsToSeed)
   } else {
     const count = await database.collection('products').countDocuments()
-    if (count === 0) {
-      await database.collection('products').insertMany(SEED_PRODUCTS)
+    const hasSizeChart = await database.collection('products').findOne({ id: 'p1', sizeChart: { $exists: true } })
+    if (count === 0 || !hasSizeChart) {
+      console.log("[VELORA] Database needs seeding or updating with size charts. Seeding/Re-seeding products...")
+      await database.collection('products').deleteMany({})
+      const productsToSeed = SEED_PRODUCTS.map(p => ({
+        ...p,
+        sizeChart: getSizeChartForProduct(p)
+      }))
+      await database.collection('products').insertMany(productsToSeed)
     } else {
       // Dynamically ensure the fuchsia kurta/kurti set p13 is always seeded & updated with correct name/details
       const p13Doc = SEED_PRODUCTS.find(p => p.id === 'p13')
       if (p13Doc) {
         const hasP13 = await database.collection('products').findOne({ id: 'p13' })
+        const p13WithChart = { ...p13Doc, sizeChart: getSizeChartForProduct(p13Doc) }
         if (!hasP13) {
-          await database.collection('products').insertOne(p13Doc)
+          await database.collection('products').insertOne(p13WithChart)
           console.log("[VELORA] Dynamically inserted the new Royal Fuchsia Embroidered Kurti Set p13.")
         } else {
-          await database.collection('products').updateOne({ id: 'p13' }, { $set: p13Doc })
+          await database.collection('products').updateOne({ id: 'p13' }, { $set: p13WithChart })
           console.log("[VELORA] Dynamically updated the existing Royal Fuchsia Embroidered Kurti Set p13.")
         }
       }
@@ -285,7 +394,8 @@ export async function GET(request, { params }) {
             rewards: user.rewards || 0,
             wallet: user.wallet || 0,
             phone: user.phone || '',
-            dob: user.dob || ''
+            dob: user.dob || '',
+            measurements: user.measurements || null
           }
         })
       } catch (err) {
@@ -461,10 +571,21 @@ export async function GET(request, { params }) {
             contents: prompt,
             config: {
               responseMimeType: "application/json",
+              responseSchema: {
+                type: "OBJECT",
+                properties: {
+                  bullets: {
+                    type: "ARRAY",
+                    items: { type: "STRING" }
+                  },
+                  summary: { type: "STRING" }
+                },
+                required: ["bullets", "summary"]
+              },
               temperature: 0.5,
             }
           })
-          summary = JSON.parse(response.text)
+          summary = safeJsonParse(response.text)
         } catch (e) {
           console.error("AI Review Summary generation failed:", e)
         }
@@ -498,6 +619,127 @@ export async function POST(request, { params }) {
     const route = path[0] || ''
     const body = await request.json().catch(() => ({}))
 
+    if (route === 'save-measurements') {
+      const { email, measurements } = body
+      if (!email) return NextResponse.json({ error: 'Email required' }, { status: 400 })
+      await database.collection('users').updateOne({ email }, { $set: { measurements } })
+      return NextResponse.json({ ok: true })
+    }
+
+    if (route === 'ai-size-recommendation') {
+      const { productId, measurements, preferredFit } = body
+      if (!productId || !measurements) {
+        return NextResponse.json({ error: 'Product ID and measurements are required' }, { status: 400 })
+      }
+
+      // Fetch the product to read its size chart
+      const product = await database.collection('products').findOne({ id: productId })
+      if (!product) {
+        return NextResponse.json({ error: 'Product not found' }, { status: 404 })
+      }
+
+      const sizeChart = product.sizeChart || {};
+      const isGeminiConfigured = !!(process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY.trim() !== "");
+
+      if (isGeminiConfigured) {
+        try {
+          const ai = getGemini()
+          const systemPrompt = `You are Velora's Premium AI Size Advisor. Your job is to analyze a customer's body measurements, compare them to the selected product's size chart, and recommend the absolute best fit.
+
+The product being looked at is "${product.name}".
+Its size chart is:
+${JSON.stringify(sizeChart, null, 2)}
+
+The customer's measurements (in cm) are:
+- Chest: ${measurements.chest} cm
+- Waist: ${measurements.waist} cm
+- Hip: ${measurements.hip} cm
+- Shoulder: ${measurements.shoulder || 'Not provided'} cm
+- Height: ${measurements.height || 'Not provided'} cm
+
+The customer's preferred fit is: "${preferredFit || 'regular'}" (options: slim, regular, relaxed).
+
+Sizing Guidance Rules:
+1. Compare the customer's chest, waist, and hip against each size in the size chart.
+2. For traditional ethnic wear, the Chest size is the most critical driver.
+3. If preferred fit is "slim", recommend the size that matches closely or is slightly snug, but do not go below their actual chest measurement.
+4. If preferred fit is "relaxed", recommend one size larger if their measurements are close to the upper limit of a size.
+5. If measurements are between sizes, recommend the larger size to ensure comfort, unless preferred fit is "slim".
+6. Return a valid JSON response containing:
+   - "recommendedSize": the matching size string (e.g. "S", "M", "L", "XL", "XXL")
+   - "confidence": an integer between 85 and 99 representing your confidence score
+   - "reason": a beautiful, premium, helpful explanation (under 50 words) of why this size fits their measurements and drape preference. Write in Velora's elegant, warm, and helpful style. Do not use complex luxury jargon.`;
+
+          const response = await ai.models.generateContent({
+            model: "gemini-3.5-flash",
+            contents: "Please analyze the sizing and provide the recommendation in JSON format.",
+            config: {
+              systemInstruction: systemPrompt,
+              responseMimeType: "application/json",
+              responseSchema: {
+                type: "OBJECT",
+                properties: {
+                  recommendedSize: { type: "STRING" },
+                  confidence: { type: "INTEGER" },
+                  reason: { type: "STRING" }
+                },
+                required: ["recommendedSize", "confidence", "reason"]
+              }
+            }
+          })
+
+          const data = safeJsonParse(response.text, null)
+          if (!data) throw new Error("Parsed size recommendation was empty or invalid")
+          return NextResponse.json(data)
+        } catch (e) {
+          console.error("Gemini size calculation failed, falling back to rule-based:", e)
+        }
+      }
+
+      // Fallback rule-based matching if Gemini is not configured or failed
+      const sizes = Object.keys(sizeChart)
+      if (sizes.length === 0) {
+        return NextResponse.json({
+          recommendedSize: product.sizes?.[0] || 'M',
+          confidence: 90,
+          reason: "Using standard sizing due to missing details."
+        })
+      }
+
+      let bestSize = sizes[sizes.length - 1]
+      const userChest = parseFloat(measurements.chest)
+      const userWaist = parseFloat(measurements.waist)
+      const userHip = parseFloat(measurements.hip)
+
+      for (const sz of sizes) {
+        const chart = sizeChart[sz]
+        if (chart && chart.chest >= userChest) {
+          bestSize = sz
+          break
+        }
+      }
+
+      let sizeIdx = sizes.indexOf(bestSize)
+      if (preferredFit === 'slim' && sizeIdx > 0) {
+        const smallerSize = sizes[sizeIdx - 1]
+        const smallerChart = sizeChart[smallerSize]
+        if (smallerChart && smallerChart.chest >= userChest - 2) {
+          bestSize = smallerSize
+        }
+      } else if (preferredFit === 'relaxed' && sizeIdx < sizes.length - 1) {
+        bestSize = sizes[sizeIdx + 1]
+      }
+
+      const chartVal = sizeChart[bestSize] || { chest: 92 }
+      const reason = `Your chest of ${userChest} cm fits our ${bestSize} size perfectly (tailored for ${chartVal.chest} cm chest). This ensures a gorgeous, custom look tailored to your preferred ${preferredFit || 'regular'} fit.`
+
+      return NextResponse.json({
+        recommendedSize: bestSize,
+        confidence: 95,
+        reason
+      })
+    }
+
     if (route === 'ai' && path[1] === 'smart-search') {
       const { q } = body
       if (!q) return NextResponse.json({ products: [] })
@@ -529,7 +771,7 @@ export async function POST(request, { params }) {
               temperature: 0.1,
             }
           })
-          searchParams = JSON.parse(response.text)
+          searchParams = safeJsonParse(response.text, {})
         } catch (e) {
           console.error("AI Smart Search parsing failed, falling back:", e)
         }
@@ -619,7 +861,7 @@ export async function POST(request, { params }) {
           }
         })
 
-        const result = JSON.parse(response.text)
+        const result = safeJsonParse(response.text, {})
         const matchedProductIds = result.matches || []
         const matchedProducts = catalog.filter(p => matchedProductIds.includes(p.id))
         
@@ -639,69 +881,339 @@ export async function POST(request, { params }) {
       const { recipient, budget, occasion, color, style } = body
       if (!recipient) return NextResponse.json({ error: 'recipient is required' }, { status: 400 })
 
-      // Sourcing all products to do intelligent matching via Gemini
-      const catalog = await database.collection('products').find({}).toArray()
-      const catalogBrief = catalog.map(p => ({
-        id: p.id,
-        name: p.name,
-        price: p.price,
-        description: p.description,
-        colors: p.colors,
-        tags: p.tags,
-        category: p.category
-      }))
+      let catalog = []
+      let dbFailed = false
 
-      const isGeminiConfigured = !!(process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY.trim() !== "");
+      try {
+        await seedIfEmpty()
+        catalog = await database.collection('products').find({}).toArray()
+      } catch (dbErr) {
+        console.error("[VELORA] Database catalog fetch failed, falling back to local SEED_PRODUCTS:", dbErr)
+        catalog = [...SEED_PRODUCTS]
+        dbFailed = true
+      }
+
+      // If the catalog is empty, force seed using local SEED_PRODUCTS
+      if (!catalog || catalog.length === 0) {
+        catalog = [...SEED_PRODUCTS]
+      }
+
+      // Filter and relaxation helper
+      const cleanBudgetStr = (budget || '').replace(/[^\d]/g, '')
+      const maxPrice = cleanBudgetStr ? parseInt(cleanBudgetStr, 10) : 100000
+
+      const filterProducts = (useOccasion, useBudget, useColor, useFabric) => {
+        return catalog.filter(p => {
+          if (p.id === 'p-payment-test') return false
+
+          // Occasion filter
+          if (useOccasion && occasion && occasion !== 'Any') {
+            const occ = occasion.toLowerCase()
+            const name = (p.name || '').toLowerCase()
+            const desc = (p.description || '').toLowerCase()
+            const mat = (p.material || '').toLowerCase()
+            
+            let matches = false
+            if (occ === 'wedding') {
+              matches = name.includes('wedding') || desc.includes('wedding') || name.includes('anarkali') || desc.includes('zardozi') || desc.includes('tilla') || mat.includes('silk') || mat.includes('velvet') || mat.includes('brocade')
+            } else if (occ === 'eid') {
+              matches = name.includes('eid') || desc.includes('eid') || desc.includes('festive') || desc.includes('chikankari') || desc.includes('mirror')
+            } else if (occ === 'festival' || occ === 'diwali') {
+              matches = name.includes('festival') || desc.includes('festival') || desc.includes('diwali') || desc.includes('zari') || desc.includes('festive') || name.includes('brocade')
+            } else if (occ === 'birthday' || occ === 'anniversary') {
+              matches = name.includes('classic') || desc.includes('memory') || desc.includes('elegant') || desc.includes('graceful') || name.includes('kurti') || name.includes('tunic')
+            } else if (occ === 'casual gifting' || occ === 'casual gift' || occ === 'casual') {
+              matches = desc.includes('casual') || desc.includes('daily') || desc.includes('breezy') || desc.includes('breathable') || mat.includes('cotton') || mat.includes('linen') || desc.includes('everyday')
+            }
+            if (!matches) return false
+          }
+
+          // Budget filter
+          if (useBudget && budget) {
+            if (p.price > maxPrice) return false
+          }
+
+          // Color filter
+          if (useColor && color && color !== 'Any' && color !== 'Any Color Family') {
+            const col = color.toLowerCase()
+            const pColors = (p.colors || []).map(c => c.toLowerCase())
+            let colorMatched = false
+            if (col.includes('green')) {
+              colorMatched = pColors.some(c => c.includes('green') || c.includes('emerald') || c.includes('teal') || c.includes('mint'))
+            } else if (col.includes('maroon') || col.includes('crimson') || col.includes('red')) {
+              colorMatched = pColors.some(c => c.includes('maroon') || c.includes('crimson') || c.includes('ruby') || c.includes('red') || c.includes('pink') || c.includes('fuchsia'))
+            } else if (col.includes('blue') || col.includes('sapphire') || col.includes('indigo')) {
+              colorMatched = pColors.some(c => c.includes('blue') || c.includes('sapphire') || c.includes('indigo') || c.includes('turquoise') || c.includes('lavender') || c.includes('lilac') || c.includes('powder'))
+            } else if (col.includes('white') || col.includes('ivory') || col.includes('beige')) {
+              colorMatched = pColors.some(c => c.includes('white') || c.includes('ivory') || c.includes('beige') || c.includes('gold') || c.includes('peach') || c.includes('cream') || c.includes('natural'))
+            } else if (col.includes('black') || col.includes('charcoal')) {
+              colorMatched = pColors.some(c => c.includes('black') || c.includes('charcoal') || c.includes('grey') || c.includes('gray'))
+            } else {
+              colorMatched = pColors.some(c => c.includes(col) || col.includes(c))
+            }
+            if (!colorMatched) return false
+          }
+
+          // Fabric filter
+          if (useFabric && style && style !== 'Any' && style !== 'Any Premium Fabric' && style !== 'No Preference') {
+            const sty = style.toLowerCase()
+            const mat = (p.material || '').toLowerCase()
+            const desc = (p.description || '').toLowerCase()
+            let styleMatched = false
+            if (sty.includes('silk')) {
+              styleMatched = mat.includes('silk') || desc.includes('silk') || mat.includes('organza') || desc.includes('organza')
+            } else if (sty.includes('georgette')) {
+              styleMatched = mat.includes('georgette') || desc.includes('georgette') || desc.includes('chikankari') || desc.includes('mirror')
+            } else if (sty.includes('cotton')) {
+              styleMatched = mat.includes('cotton') || desc.includes('cotton') || mat.includes('linen') || desc.includes('linen')
+            } else if (sty.includes('linen')) {
+              styleMatched = mat.includes('linen') || desc.includes('linen') || mat.includes('cotton') || desc.includes('cotton')
+            } else {
+              styleMatched = mat.includes(sty) || desc.includes(sty)
+            }
+            if (!styleMatched) return false
+          }
+
+          return true
+        })
+      }
+
+      // Step-by-step filter relaxation as per rules: Colour -> Fabric -> Style (Fabric/Style are same here) -> Occasion
+      let candidates = filterProducts(true, true, true, true)
+      if (candidates.length < 4) {
+        candidates = filterProducts(true, true, false, true) // Relax Colour
+      }
+      if (candidates.length < 4) {
+        candidates = filterProducts(true, true, false, false) // Relax Fabric/Style
+      }
+      if (candidates.length < 4) {
+        candidates = filterProducts(true, false, false, false) // Relax Budget
+      }
+      if (candidates.length < 4) {
+        candidates = filterProducts(false, false, false, false) // Relax Occasion (Return all real products)
+      }
+
+      // Scoring and ranking candidates to select the absolute best matches
+      const scoreProduct = (p) => {
+        let score = 0
+
+        // 1. Occasion Match (up to 30 points)
+        if (occasion) {
+          const occ = occasion.toLowerCase()
+          const name = (p.name || '').toLowerCase()
+          const desc = (p.description || '').toLowerCase()
+          const mat = (p.material || '').toLowerCase()
+
+          let matchesOccasion = false
+          if (occ === 'wedding') {
+            matchesOccasion = name.includes('wedding') || desc.includes('wedding') || name.includes('anarkali') || desc.includes('zardozi') || desc.includes('tilla') || mat.includes('silk') || mat.includes('velvet') || mat.includes('brocade')
+          } else if (occ === 'eid') {
+            matchesOccasion = name.includes('eid') || desc.includes('eid') || desc.includes('festive') || desc.includes('chikankari') || desc.includes('mirror') || mat.includes('organza') || mat.includes('georgette')
+          } else if (occ === 'festival' || occ === 'diwali') {
+            matchesOccasion = name.includes('festival') || desc.includes('festival') || desc.includes('diwali') || desc.includes('zari') || mat.includes('brocade') || desc.includes('festive') || name.includes('brocade')
+          } else if (occ === 'birthday' || occ === 'anniversary') {
+            matchesOccasion = name.includes('classic') || desc.includes('memory') || desc.includes('elegant') || desc.includes('graceful') || name.includes('kurti') || name.includes('tunic')
+          } else if (occ === 'casual gifting' || occ === 'casual gift' || occ === 'casual') {
+            matchesOccasion = desc.includes('casual') || desc.includes('daily') || desc.includes('breezy') || desc.includes('breathable') || mat.includes('cotton') || mat.includes('linen') || desc.includes('everyday')
+          }
+
+          if (matchesOccasion) score += 30
+        }
+
+        // 2. Budget Match (up to 25 points)
+        if (p.price <= maxPrice) {
+          score += 25
+        } else {
+          const diff = p.price - maxPrice
+          if (diff <= maxPrice * 0.3) {
+            score += Math.max(0, Math.floor(25 * (1 - diff / (maxPrice * 0.3))))
+          }
+        }
+
+        // 3. Color Match (up to 20 points)
+        if (!color || color === 'Any' || color === 'Any Color Family') {
+          score += 20
+        } else {
+          const col = color.toLowerCase()
+          const pColors = (p.colors || []).map(c => c.toLowerCase())
+          let colorMatched = false
+          if (col.includes('green')) {
+            colorMatched = pColors.some(c => c.includes('green') || c.includes('emerald') || c.includes('teal') || c.includes('mint'))
+          } else if (col.includes('maroon') || col.includes('crimson') || col.includes('red')) {
+            colorMatched = pColors.some(c => c.includes('maroon') || c.includes('crimson') || c.includes('ruby') || c.includes('red') || c.includes('pink') || c.includes('fuchsia'))
+          } else if (col.includes('blue') || col.includes('sapphire') || col.includes('indigo')) {
+            colorMatched = pColors.some(c => c.includes('blue') || c.includes('sapphire') || c.includes('indigo') || c.includes('turquoise') || c.includes('lavender') || c.includes('lilac') || c.includes('powder'))
+          } else if (col.includes('white') || col.includes('ivory') || col.includes('beige')) {
+            colorMatched = pColors.some(c => c.includes('white') || c.includes('ivory') || c.includes('beige') || c.includes('gold') || c.includes('peach') || c.includes('cream') || c.includes('natural'))
+          } else if (col.includes('black') || col.includes('charcoal')) {
+            colorMatched = pColors.some(c => c.includes('black') || c.includes('charcoal') || c.includes('grey') || c.includes('gray'))
+          } else {
+            colorMatched = pColors.some(c => c.includes(col) || col.includes(c))
+          }
+          if (colorMatched) score += 20
+        }
+
+        // 4. Fabric / Style Match (up to 15 points)
+        if (!style || style === 'Any' || style === 'Any Premium Fabric' || style === 'No Preference') {
+          score += 15
+        } else {
+          const sty = style.toLowerCase()
+          const mat = (p.material || '').toLowerCase()
+          const desc = (p.description || '').toLowerCase()
+          let styleMatched = false
+          if (sty.includes('silk')) {
+            styleMatched = mat.includes('silk') || desc.includes('silk') || mat.includes('organza') || desc.includes('organza')
+          } else if (sty.includes('georgette')) {
+            styleMatched = mat.includes('georgette') || desc.includes('georgette') || desc.includes('chikankari') || desc.includes('mirror')
+          } else if (sty.includes('cotton')) {
+            styleMatched = mat.includes('cotton') || desc.includes('cotton') || mat.includes('linen') || desc.includes('linen')
+          } else if (sty.includes('linen')) {
+            styleMatched = mat.includes('linen') || desc.includes('linen') || mat.includes('cotton') || desc.includes('cotton')
+          } else {
+            styleMatched = mat.includes(sty) || desc.includes(sty)
+          }
+          if (styleMatched) score += 15
+        }
+
+        // 5. Recipient Match (up to 10 points)
+        if (recipient) {
+          const rec = recipient.toLowerCase()
+          const desc = (p.description || '').toLowerCase()
+          const tags = (p.tags || []).map(t => t.toLowerCase())
+          let recMatched = false
+          if (rec === 'mother') {
+            recMatched = desc.includes('heritage') || desc.includes('traditional') || desc.includes('pure') || desc.includes('classic') || desc.includes('understated') || desc.includes('minimalist')
+          } else if (rec === 'sister') {
+            recMatched = desc.includes('vibrant') || desc.includes('playful') || desc.includes('modern') || tags.includes('new') || desc.includes('fuchsia') || desc.includes('lavender') || desc.includes('lilac')
+          } else if (rec === 'wife' || rec === 'partner' || rec === 'wife / partner') {
+            recMatched = desc.includes('exquisite') || desc.includes('silk') || desc.includes('ornate') || desc.includes('luxe') || desc.includes('ruby') || desc.includes('velvet') || desc.includes('anarkali')
+          } else if (rec === 'friend' || rec === 'dear friend') {
+            recMatched = desc.includes('breezy') || desc.includes('minimalist') || desc.includes('everyday') || desc.includes('linen') || desc.includes('cotton') || desc.includes('lavender')
+          } else if (rec === 'bride' || rec === 'the bride') {
+            recMatched = desc.includes('wedding') || desc.includes('bridal') || desc.includes('opulent') || desc.includes('heavy') || desc.includes('tilla') || desc.includes('zardozi') || desc.includes('banarasi')
+          }
+          if (recMatched) score += 10
+        }
+
+        score += (p.rating || 4.5) * 0.1
+        return score
+      }
+
+      const scoredCandidates = candidates.map(p => ({ p, score: scoreProduct(p) }))
+      scoredCandidates.sort((a, b) => b.score - a.score)
+      const rankedCandidates = scoredCandidates.map(sc => sc.p)
+
+      // Settle on fallback/rule-based selections (top 6 matches)
+      const fallbackProductsList = rankedCandidates.slice(0, 6)
+      const defaultGreeting = `We have carefully handpicked these exquisite ethnic designs matching your gifting preferences for a truly memorable celebration.`
+
       let result = null
+      const isGeminiConfigured = !!(process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY.trim() !== "");
 
-      if (isGeminiConfigured) {
+      if (isGeminiConfigured && !dbFailed) {
         try {
           const ai = getGemini()
-          const prompt = `You are Velora's luxury gifting concierge. Recommend the top 3 best gifts from our catalog:
-          ${JSON.stringify(catalogBrief, null, 2)}
-          
-          Based on these search parameters:
-          - Recipient: ${recipient}
-          - Budget: ₹${budget || 'Any'}
-          - Occasion: ${occasion || 'Any'}
-          - Color Preference: ${color || 'Any'}
-          - Style Vibe: ${style || 'Any'}
-          
-          Match these parameters thoughtfully to our premium kurtis and sets (e.g., weddings get heavier velvet/silk, office wear gets lighter cotton/linen, under budget limits).
-          Output a JSON object ONLY:
-          {
-            "recommendations": ["p1", "p3"],
-            "greeting": "Dear Patron, for an exquisite wedding celebration, we have curated these royal silk and velvet creations."
-          }`
+          if (ai) {
+            const catalogBrief = catalog.map(p => ({
+              id: p.id,
+              name: p.name,
+              price: p.price,
+              description: p.description,
+              colors: p.colors,
+              tags: p.tags,
+              category: p.category,
+              material: p.material || ''
+            }))
 
-          const response = await ai.models.generateContent({
-            model: "gemini-3.5-flash",
-            contents: prompt,
-            config: {
-              responseMimeType: "application/json",
-              temperature: 0.6,
-            }
-          })
-          result = JSON.parse(response.text)
+            const prompt = `You are Velora's luxury gifting concierge. Recommend 4 to 8 best matching products from our catalog:
+            ${JSON.stringify(catalogBrief, null, 2)}
+            
+            Based on these search parameters:
+            - Recipient: ${recipient}
+            - Budget: ₹${budget || 'Any'}
+            - Occasion: ${occasion || 'Any'}
+            - Color Preference: ${color || 'Any'}
+            - Fabric Preference: ${style || 'Any'}
+            
+            Match these parameters thoughtfully to our premium kurtis and sets.
+            For instance, if the occasion is a Wedding, Eid or Festival, recommend luxurious heavyweight silk, velvet, brocade, or zardozi embellished kurtis (e.g. p1 Noor Jahan Silk, p3 Zeenat Royal Velvet, p7 Mastani Brocade). If casual or for everyday, recommend lightweight premium cotton, linen, or georgette styles (e.g. p12 Laila Linen, p9 Inayat Cotton-Silk).
+            For each recommended item, provide a custom, ultra-premium, 1-to-2 sentence reason detailing why it is the perfect selection for this ${recipient}, occasion, budget, and style.`
+
+            const response = await ai.models.generateContent({
+              model: "gemini-3.5-flash",
+              contents: prompt,
+              config: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                  type: "OBJECT",
+                  properties: {
+                    recommendations: {
+                      type: "ARRAY",
+                      items: {
+                        type: "OBJECT",
+                        properties: {
+                          id: { type: "STRING" },
+                          reason: { type: "STRING" }
+                        },
+                        required: ["id", "reason"]
+                      }
+                    },
+                    greeting: { type: "STRING" }
+                  },
+                  required: ["recommendations", "greeting"]
+                },
+                temperature: 0.6,
+              }
+            })
+            result = safeJsonParse(response.text, null)
+          }
         } catch (e) {
           console.error("AI Gift Finder failed:", e)
         }
       }
 
-      if (!result) {
-        // Fallback
-        const maxPrice = budget ? parseInt(budget) : 100000
-        const matched = catalog.filter(p => p.price <= maxPrice).slice(0, 3)
-        result = {
-          recommendations: matched.map(p => p.id),
-          greeting: "We have carefully selected these premium ethnic ensembles matching your gifting preference."
+      let finalProducts = []
+      let finalGreeting = dbFailed ? "We couldn't find an exact match. Here are some similar styles." : defaultGreeting
+
+      if (result && result.recommendations && result.recommendations.length > 0) {
+        const recsList = result.recommendations
+        const validRecs = recsList.filter(r => catalog.some(p => p.id === r.id))
+
+        if (validRecs.length >= 4) {
+          finalProducts = validRecs.map(r => {
+            const product = catalog.find(p => p.id === r.id)
+            return {
+              ...cleanDoc(product),
+              aiReason: r.reason
+            }
+          })
+          finalGreeting = result.greeting || finalGreeting
         }
       }
 
-      const recommendedProducts = catalog.filter(p => (result.recommendations || []).includes(p.id))
+      // If Gemini wasn't configured, failed, or didn't return enough valid recommendations, use our high-quality scoring fallback
+      if (finalProducts.length < 4) {
+        finalProducts = fallbackProductsList.map(p => {
+          let reason = `This exquisite ${p.material || 'premium'} piece is beautifully tailored, making it a perfect ${occasion || 'gifting'} choice for your ${recipient || 'loved one'}.`
+          if (occasion === 'Wedding') {
+            reason = `The rich craftsmanship, opulent fabric, and traditional styling of this piece make it an outstanding, high-contrast choice for a grand Wedding celebration.`
+          } else if (occasion === 'Eid') {
+            reason = `Featuring gorgeous festive detailing and premium construction, this elegant design brings a refined touch of joy and tradition to Eid festivities.`
+          } else if (occasion === 'Festival') {
+            reason = `Bright color tones paired with traditional motifs make this look wonderful for festive occasions, ensuring a vibrant and polished style.`
+          } else if (style && style !== 'No Preference' && (p.material || '').toLowerCase().includes(style.toLowerCase())) {
+            reason = `Crafted in premium ${style}, this organic and breathable fabric directly matches your preferred materials for day-long luxury.`
+          }
+          return {
+            ...cleanDoc(p),
+            aiReason: reason
+          }
+        })
+      }
+
       return NextResponse.json({
-        products: recommendedProducts.map(cleanDoc),
-        greeting: result.greeting
+        products: finalProducts,
+        greeting: finalGreeting
       })
     }
 

@@ -216,6 +216,6 @@ test_plan:
 
 agent_communication:
   - agent: "main"
-    message: "MVP + enhancements complete. Premium white theme, Vera AI chat widget with 8 quick actions (LLM-backed with rich rule-based fallback), and real UPI QR interface for 7001568884@mbk are all live. Backend endpoints tested via curl — chat and coupons working. Ready for user validation."
+    message: "Fixed the DialogContent and SheetContent accessibility issue where Radix UI complained about a missing DialogTitle. Added visually hidden fallbacks in components/ui/dialog.jsx and components/ui/sheet.jsx to ensure compliance and robust screen-reader support. Cleared stale build cache and successfully compiled the applet."
 
 #====================================================================================================

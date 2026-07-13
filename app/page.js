@@ -5,6 +5,8 @@ import PremiumAccount from "@/components/PremiumAccount";
 import PremiumSizeGuide from "@/components/PremiumSizeGuide";
 import LuxuryShowcase from "@/components/LuxuryShowcase";
 import MiniCart from "@/components/MiniCart";
+import VeloraClub from "@/components/VeloraClub";
+import GiftStudioView from "@/components/GiftStudioView";
 import { useState, useEffect, useMemo, useRef, createContext, useContext } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Button } from '@/components/ui/button'
@@ -110,17 +112,18 @@ const Header = () => {
   const { setRoute, cart, wishlist, user, setUser, setSearchOpen, setMobileNavOpen, mobileNavOpen, isOffline, setCartOpen } = useShop()
   const [scrolled, setScrolled] = useState(false)
   const [showDropdown, setShowDropdown] = useState(false)
+  const [showGiftStudioCard, setShowGiftStudioCard] = useState(false)
   useEffect(() => {
     const h = () => setScrolled(window.scrollY > 20)
     window.addEventListener('scroll', h); return () => window.removeEventListener('scroll', h)
   }, [])
   const links = [
-    { l: 'Shop', r: { view: 'shop' } },
-    { l: 'Men', r: { view: 'shop', filter: { gender: 'men' } } },
-    { l: 'Women', r: { view: 'shop', filter: { gender: 'women' } } },
-    { l: 'Oversized', r: { view: 'shop', filter: { category: 'oversized' } } },
-    { l: 'New', r: { view: 'shop', filter: { tag: 'new' } } },
+    { l: 'Home', r: { view: 'home' } },
+    { l: 'New Arrivals', r: { view: 'shop', filter: { tag: 'new' } } },
+    { l: 'Collections', r: { view: 'shop' } },
+    { l: 'Gift Studio', r: { view: 'gift-studio' } },
     { l: 'Sale', r: { view: 'shop', filter: { tag: 'sale' } } },
+    { l: 'Profile', r: { view: 'account' } },
   ]
   return (
     <>
@@ -130,12 +133,71 @@ const Header = () => {
           <button onClick={() => setMobileNavOpen(true)} className="lg:hidden text-neutral-900"><Menu className="w-6 h-6" /></button>
           <button onClick={() => setRoute({ view: 'home' })} className="flex-shrink-0"><VeloraLogo /></button>
           <nav className="hidden lg:flex items-center gap-8">
-            {links.map((x) => (
-              <button key={x.l} onClick={() => setRoute(x.r)} className="text-sm font-medium text-neutral-800 hover:text-neutral-900 transition relative group tracking-wide">
-                {x.l}
-                <span className="absolute -bottom-1 left-0 right-0 h-px bg-gradient-to-r from-transparent via-amber-500 to-transparent scale-x-0 group-hover:scale-x-100 transition-transform" />
-              </button>
-            ))}
+            {links.map((x) => {
+              if (x.l === 'Gift Studio') {
+                return (
+                  <div 
+                    key={x.l}
+                    className="relative py-2"
+                    onMouseEnter={() => setShowGiftStudioCard(true)}
+                    onMouseLeave={() => setShowGiftStudioCard(false)}
+                  >
+                    <button 
+                      onClick={() => setRoute(x.r)} 
+                      className="text-sm font-medium text-neutral-800 hover:text-neutral-950 transition relative tracking-wide flex items-center gap-1.5"
+                    >
+                      <span>{x.l}</span>
+                      <span className="text-[8px] bg-neutral-950 text-white font-mono px-1.5 py-0.5 tracking-wider uppercase scale-90 font-bold rounded-none">
+                        NEW
+                      </span>
+                      <span className="absolute -bottom-1 left-0 right-0 h-px bg-gradient-to-r from-transparent via-amber-500 to-transparent scale-x-0 group-hover:scale-x-100 transition-transform" />
+                    </button>
+
+                    <AnimatePresence>
+                      {showGiftStudioCard && (
+                        <motion.div
+                          initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                          animate={{ opacity: 1, y: 0, scale: 1 }}
+                          exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                          transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+                          className="absolute left-1/2 -translate-x-1/2 top-10 w-72 bg-white border border-neutral-200 p-5 shadow-[0_15px_45px_rgba(0,0,0,0.06)] z-50 rounded-none text-left space-y-4"
+                        >
+                          <div className="space-y-1">
+                            <h4 className="text-xs font-mono font-bold tracking-[0.2em] text-neutral-950 uppercase flex items-center gap-1.5">
+                              <Gift className="w-3.5 h-3.5 text-neutral-550" />
+                              Gift Studio
+                            </h4>
+                            <p className="text-[11px] text-neutral-500 leading-normal font-sans">
+                              Find thoughtful gifts with personalised recommendations.
+                            </p>
+                          </div>
+                          
+                          <div className="h-28 w-full overflow-hidden bg-neutral-50 relative">
+                            <img 
+                              src="https://images.unsplash.com/photo-1549465220-1a8b9238cd48?auto=format&fit=crop&q=80&w=400" 
+                              alt="Premium Gifting Box" 
+                              className="w-full h-full object-cover grayscale contrast-125 brightness-95"
+                            />
+                            <div className="absolute inset-0 bg-neutral-950/10" />
+                          </div>
+                          
+                          <div className="text-[9px] font-mono tracking-widest text-neutral-450 uppercase text-center pt-1">
+                            EXPERIENCE LAUNCH
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                )
+              }
+
+              return (
+                <button key={x.l} onClick={() => setRoute(x.r)} className="text-sm font-medium text-neutral-800 hover:text-neutral-900 transition relative group tracking-wide">
+                  {x.l}
+                  <span className="absolute -bottom-1 left-0 right-0 h-px bg-gradient-to-r from-transparent via-amber-500 to-transparent scale-x-0 group-hover:scale-x-100 transition-transform" />
+                </button>
+              )
+            })}
           </nav>
           <div className="flex items-center gap-1 md:gap-2">
             {/* Connectivity Indicator */}
@@ -167,6 +229,15 @@ const Header = () => {
 
             <button onClick={() => setSearchOpen(true)} className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-black/[0.02] transition"><Search className="w-5 h-5" /></button>
             
+            {/* VELORA Club Link */}
+            <button 
+              onClick={() => setRoute({ view: 'club' })} 
+              className="flex items-center gap-1.5 px-3 py-1.5 hover:bg-black/[0.02] text-[10px] tracking-widest font-semibold text-neutral-800 transition uppercase rounded-none"
+            >
+              <Award className="w-4 h-4 text-neutral-500" />
+              <span className="hidden md:inline">VELORA Club</span>
+            </button>
+
             {/* Profile Dropdown Container */}
             <div 
               className="relative"
@@ -193,6 +264,7 @@ const Header = () => {
                         
                         <div className="flex flex-col gap-2.5">
                           {[
+                            { label: 'VELORA CLUB', view: 'club' },
                             { label: 'MY ORDERS', view: 'account' },
                             { label: 'MY WISHLIST', view: 'account' },
                             { label: 'PROFILE INFO', view: 'account' },
@@ -298,8 +370,23 @@ const Header = () => {
               </button>
             ))}
           </div>
+          
+          {/* Premium Highlighted Quick Action for Gift Studio */}
+          <div className="mt-6 px-3">
+            <button 
+              onClick={() => { setRoute({ view: 'gift-studio' }); setMobileNavOpen(false) }}
+              className="w-full bg-neutral-950 text-white hover:bg-neutral-800 py-3.5 px-4 flex items-center justify-between text-xs tracking-widest font-semibold uppercase rounded-none border border-neutral-950 transition-all duration-300 shadow-sm"
+            >
+              <span className="flex items-center gap-2">
+                <Gift className="w-4 h-4 text-neutral-300" />
+                <span>Gift Studio</span>
+              </span>
+              <ChevronRight className="w-4 h-4 text-neutral-300" />
+            </button>
+          </div>
+
           <div className="mt-8 space-y-2">
-            {[['About','about'],['Contact','contact'],['FAQ','faq'],['Size Guide','size-guide'],['Shipping','shipping'],['Track Order','track-order']].map(([p,v]) => (
+            {[['VELORA Club', 'club'],['About','about'],['Contact','contact'],['FAQ','faq'],['Size Guide','size-guide'],['Shipping','shipping'],['Track Order','track-order']].map(([p,v]) => (
               <button key={p} onClick={() => { setRoute({ view: v }); setMobileNavOpen(false) }} className="block w-full text-left py-2 text-sm text-neutral-600 hover:text-neutral-900">{p}</button>
             ))}
           </div>
@@ -356,8 +443,154 @@ const SearchOverlay = () => {
   )
 }
 
+const QuickViewModal = () => {
+  const { quickViewProduct, setQuickViewProduct, addToCart, setRoute, wishlist, toggleWishlist } = useShop()
+  const [size, setSize] = useState('')
+  const [color, setColor] = useState('')
+  const [qty, setQty] = useState(1)
+  const [imgIdx, setImgIdx] = useState(0)
+
+  useEffect(() => {
+    if (quickViewProduct) {
+      setSize(quickViewProduct.sizes?.[0] || '')
+      setColor(quickViewProduct.colors?.[0] || '')
+      setQty(1)
+      setImgIdx(0)
+    }
+  }, [quickViewProduct])
+
+  if (!quickViewProduct) return null
+
+  const inWL = wishlist.includes(quickViewProduct.id)
+
+  return (
+    <AnimatePresence>
+      <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-neutral-950/40 backdrop-blur-sm" onClick={() => setQuickViewProduct(null)}>
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.95, y: 15 }} 
+          animate={{ opacity: 1, scale: 1, y: 0 }} 
+          exit={{ opacity: 0, scale: 0.95, y: 15 }}
+          transition={{ type: "spring", damping: 25, stiffness: 220 }}
+          className="relative w-full max-w-4xl bg-[#fafaf9] rounded-3xl overflow-hidden shadow-2xl border border-black/10 text-neutral-900 grid md:grid-cols-2"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <button 
+            onClick={() => setQuickViewProduct(null)} 
+            className="absolute top-4 right-4 z-10 w-9 h-9 rounded-full bg-white/80 backdrop-blur-md border border-black/10 flex items-center justify-center hover:bg-white hover:scale-105 transition"
+          >
+            <X className="w-5 h-5 text-neutral-800" />
+          </button>
+
+          <div className="p-6 md:p-8 bg-neutral-100 flex flex-col justify-center border-r border-black/5 relative min-h-[300px] md:min-h-[450px]">
+            <div className="aspect-[3/4] w-full rounded-2xl overflow-hidden relative bg-black/5 flex-1 max-h-[400px]">
+              <img src={quickViewProduct.images[imgIdx]} alt={quickViewProduct.name} className="w-full h-full object-cover" />
+              {quickViewProduct.images.length > 1 && (
+                <div className="absolute inset-x-4 top-1/2 -translate-y-1/2 flex justify-between pointer-events-none">
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); setImgIdx((imgIdx - 1 + quickViewProduct.images.length) % quickViewProduct.images.length) }} 
+                    className="pointer-events-auto w-8 h-8 rounded-full bg-white/95 flex items-center justify-center shadow hover:scale-105 transition"
+                  >
+                    <ChevronLeft className="w-4.5 h-4.5" />
+                  </button>
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); setImgIdx((imgIdx + 1) % quickViewProduct.images.length) }} 
+                    className="pointer-events-auto w-8 h-8 rounded-full bg-white/95 flex items-center justify-center shadow hover:scale-105 transition"
+                  >
+                    <ChevronRight className="w-4.5 h-4.5" />
+                  </button>
+                </div>
+              )}
+            </div>
+            {quickViewProduct.images.length > 1 && (
+              <div className="flex gap-2 mt-4 justify-center">
+                {quickViewProduct.images.map((img, i) => (
+                  <button 
+                    key={i} 
+                    onClick={() => setImgIdx(i)} 
+                    className={`w-12 h-14 rounded-lg overflow-hidden border-2 transition ${imgIdx === i ? 'border-neutral-900 opacity-100' : 'border-transparent opacity-50'}`}
+                  >
+                    <img src={img} className="w-full h-full object-cover" alt="" />
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="p-6 md:p-8 flex flex-col justify-between max-h-[550px] md:max-h-none overflow-y-auto">
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[10px] tracking-[0.2em] font-mono font-bold text-neutral-500 uppercase">{quickViewProduct.category}</span>
+                <div className="flex items-center gap-1 text-xs text-neutral-600">
+                  <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+                  <span className="font-semibold">{quickViewProduct.rating}</span>
+                </div>
+              </div>
+              
+              <h2 className="text-xl font-display font-bold mb-2 leading-tight">{quickViewProduct.name}</h2>
+              
+              <div className="flex items-baseline gap-2 mb-4">
+                <span className="text-2xl font-display font-bold">{fmt(quickViewProduct.price)}</span>
+                <span className="text-sm text-neutral-500 line-through">{fmt(quickViewProduct.mrp)}</span>
+                <span className="text-xs text-neutral-900 font-bold bg-neutral-100 px-2 py-0.5 rounded">-{quickViewProduct.discount}% OFF</span>
+              </div>
+
+              <p className="text-xs text-neutral-600 leading-relaxed mb-6 font-serif-lux italic">{quickViewProduct.description}</p>
+
+              {quickViewProduct.colors?.length > 0 && (
+                <div className="mb-4">
+                  <p className="text-[9px] font-mono uppercase tracking-wider text-neutral-500 mb-1.5">Color: <span className="text-neutral-900 font-semibold">{color}</span></p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {quickViewProduct.colors.map(c => (
+                      <button key={c} onClick={() => setColor(c)} className={`px-2.5 py-1 rounded-full text-[11px] font-semibold border transition ${color === c ? 'border-neutral-900 bg-neutral-900/5 text-neutral-900' : 'border-neutral-200 text-neutral-500 hover:border-neutral-400'}`}>{c}</button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {quickViewProduct.sizes?.length > 0 && (
+                <div className="mb-6">
+                  <p className="text-[9px] font-mono uppercase tracking-wider text-neutral-500 mb-1.5">Size: <span className="text-neutral-900 font-semibold">{size}</span></p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {quickViewProduct.sizes.map(s => (
+                      <button key={s} onClick={() => setSize(s)} className={`px-3 py-1 rounded-lg text-xs font-bold border transition ${size === s ? 'border-neutral-900 bg-neutral-900/5 text-neutral-900' : 'border-neutral-200 text-neutral-500 hover:border-neutral-400'}`}>{s}</button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-3 pt-4 border-t border-black/5">
+              <div className="flex gap-2">
+                <Button 
+                  onClick={() => { addToCart(quickViewProduct, size, color, qty); setQuickViewProduct(null); }} 
+                  className="flex-1 h-11 rounded-xl bg-neutral-950 text-white hover:bg-neutral-900 text-xs font-semibold uppercase tracking-wider"
+                >
+                  Add to Bag
+                </Button>
+                <button 
+                  onClick={() => toggleWishlist(quickViewProduct.id)} 
+                  className="w-11 h-11 rounded-xl border border-black/10 flex items-center justify-center hover:bg-neutral-50"
+                >
+                  <Heart className={`w-4 h-4 ${inWL ? 'fill-red-500 text-red-500 animate-pulse' : 'text-neutral-700'}`} />
+                </button>
+              </div>
+              
+              <button 
+                onClick={() => { setRoute({ view: 'product', id: quickViewProduct.id }); setQuickViewProduct(null); }} 
+                className="w-full text-center text-xs text-neutral-500 hover:text-neutral-950 underline font-medium tracking-wide"
+              >
+                View Full Product Details
+              </button>
+            </div>
+          </div>
+        </motion.div>
+      </div>
+    </AnimatePresence>
+  )
+}
+
 const ProductCard = ({ p, idx = 0 }) => {
-  const { setRoute, toggleWishlist, wishlist, addToCart } = useShop()
+  const { setRoute, toggleWishlist, wishlist, addToCart, setQuickViewProduct } = useShop()
   const inWL = wishlist.includes(p.id)
   return (
     <motion.div
@@ -378,18 +611,30 @@ const ProductCard = ({ p, idx = 0 }) => {
         <div className="absolute inset-0 bg-black/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
         {p.badge && (
           <span className="absolute top-3 left-3 px-2.5 py-1 text-[10px] tracking-[0.2em] font-bold rounded-full glass-strong">
-            {p.badge === 'NEW' && <span className="text-blue-400">● {p.badge}</span>}
-            {p.badge === 'BESTSELLER' && <span className="text-amber-400">★ {p.badge}</span>}
-            {p.badge === 'LIMITED' && <span className="text-purple-400">◆ {p.badge}</span>}
-            {p.badge === 'SALE' && <span className="text-red-400">▼ -{p.discount}%</span>}
+            {p.badge === 'NEW' && <span className="text-neutral-900">● {p.badge}</span>}
+            {p.badge === 'BESTSELLER' && <span className="text-amber-700">★ {p.badge}</span>}
+            {p.badge === 'LIMITED' && <span className="text-neutral-700">◆ {p.badge}</span>}
+            {p.badge === 'SALE' && <span className="text-red-700">▼ -{p.discount}%</span>}
           </span>
         )}
         <button onClick={(e) => { e.stopPropagation(); toggleWishlist(p.id) }} className="absolute top-3 right-3 w-9 h-9 rounded-full glass-strong flex items-center justify-center hover:scale-105 transition">
-          <Heart className={`w-4 h-4 ${inWL ? 'fill-red-500 text-red-500' : 'text-neutral-700'}`} />
+          <Heart className={`w-4 h-4 ${inWL ? 'fill-red-500 text-red-500 animate-pulse' : 'text-neutral-700'}`} />
         </button>
-        <button onClick={(e) => { e.stopPropagation(); addToCart(p, p.sizes[0], p.colors[0]) }} className="absolute bottom-3 left-3 right-3 py-3 rounded-xl bg-neutral-900 text-white font-medium text-xs opacity-0 group-hover:opacity-100 transition-all duration-300 flex items-center justify-center gap-2 hover:bg-black">
-          <ShoppingBag className="w-4 h-4" /> Quick Add
-        </button>
+        <div className="absolute bottom-3 left-3 right-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-all duration-300">
+          <button 
+            onClick={(e) => { e.stopPropagation(); addToCart(p, p.sizes[0], p.colors[0]) }} 
+            className="flex-1 py-2.5 rounded-xl bg-neutral-950 text-white font-medium text-xs flex items-center justify-center gap-1.5 hover:bg-neutral-900 transition-colors"
+          >
+            <ShoppingBag className="w-3.5 h-3.5" /> Quick Add
+          </button>
+          <button 
+            onClick={(e) => { e.stopPropagation(); setQuickViewProduct(p) }} 
+            className="w-10 h-10 rounded-xl bg-white text-neutral-900 flex items-center justify-center border border-black/10 hover:bg-neutral-50 transition-colors"
+            title="Quick View"
+          >
+            <Search className="w-4 h-4" />
+          </button>
+        </div>
       </div>
       <div className="pt-4 space-y-1">
         <div className="flex items-start justify-between gap-2">
@@ -398,9 +643,9 @@ const ProductCard = ({ p, idx = 0 }) => {
         </div>
         <p className="text-xs text-neutral-500 uppercase tracking-wider">{p.category}</p>
         <div className="flex items-center gap-2 pt-1">
-          <span className="font-semibold">{fmt(p.price)}</span>
+          <span className="font-semibold text-neutral-950">{fmt(p.price)}</span>
           <span className="text-xs text-neutral-500 line-through">{fmt(p.mrp)}</span>
-          <span className="text-xs text-blue-400 font-bold">-{p.discount}%</span>
+          <span className="text-xs text-neutral-900 font-bold bg-neutral-100 px-1.5 py-0.5 rounded">-{p.discount}% OFF</span>
         </div>
       </div>
     </motion.div>
@@ -416,42 +661,46 @@ const HERO_SLIDES = [
 const Hero = () => {
   const { setRoute } = useShop()
   const [i, setI] = useState(0)
-  const [mousePos, setMousePos] = useState({ x: 0, y: 0 })
+  const [reducedMotion, setReducedMotion] = useState(false)
 
   useEffect(() => {
-    const t = setInterval(() => setI(x => (x + 1) % HERO_SLIDES.length), 7000)
+    const t = setInterval(() => setI(x => (x + 1) % HERO_SLIDES.length), 9000)
     return () => clearInterval(t)
   }, [])
 
-  const handleMouseMove = (e) => {
-    const { clientX, clientY } = e
-    const x = (clientX - window.innerWidth / 2) / 30
-    const y = (clientY - window.innerHeight / 2) / 30
-    setMousePos({ x, y })
-  }
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)')
+    setReducedMotion(mediaQuery.matches)
+    const listener = (e) => setReducedMotion(e.matches)
+    mediaQuery.addEventListener('change', listener)
+    return () => mediaQuery.removeEventListener('change', listener)
+  }, [])
 
   const s = HERO_SLIDES[i]
 
   return (
     <section 
-      onMouseMove={handleMouseMove}
       className="relative h-[100svh] w-full overflow-hidden select-none"
     >
-      <AnimatePresence mode="wait">
+      <AnimatePresence>
         <motion.div 
           key={i} 
-          initial={{ opacity: 0, scale: 1.05 }} 
-          animate={{ opacity: 1, scale: 1.02 }} 
+          initial={{ opacity: 0 }} 
+          animate={{ opacity: 1 }} 
           exit={{ opacity: 0 }} 
-          transition={{ duration: 1.8, ease: [0.16, 1, 0.3, 1] }} 
+          transition={{ duration: 2.0, ease: [0.25, 1, 0.5, 1] }} 
           className="absolute inset-0"
         >
           <motion.img 
             src={s.img} 
             alt="" 
-            animate={{ x: mousePos.x, y: mousePos.y }}
-            transition={{ type: 'tween', ease: 'linear', duration: 0.15 }}
-            className="w-[105%] h-[105%] -left-[2.5%] -top-[2.5%] absolute object-cover" 
+            initial={reducedMotion ? { scale: 1.0 } : { scale: 1.0, y: '0%', x: '0%' }}
+            animate={reducedMotion ? { scale: 1.0 } : { scale: 1.04, y: '-1%', x: '-0.5%' }}
+            transition={{ 
+              duration: 10, 
+              ease: [0.25, 1, 0.5, 1]
+            }}
+            className="w-[106%] h-[106%] -left-[3%] -top-[3%] absolute object-cover" 
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-black/30" />
           <div className="absolute inset-0 bg-gradient-to-r from-black/75 via-black/15 to-transparent" />
@@ -512,7 +761,7 @@ const Hero = () => {
             className="absolute top-0 left-0 w-full h-1/2 bg-amber-500" 
           />
         </div>
-        <span>SCROLL TO EXPLORE ATELIER</span>
+        <span>SCROLL TO DISCOVER</span>
       </div>
 
       <div className="absolute bottom-12 right-12 z-10 flex gap-2">
@@ -837,20 +1086,20 @@ const BrandStory = () => {
       <div className="max-w-[1600px] mx-auto px-6 md:px-12 grid md:grid-cols-2 gap-16 items-center relative z-10">
         
         <div className="space-y-8">
-          <span className="text-xs font-mono tracking-[0.4em] text-amber-500 uppercase block">◆ ELIXIR OF THE BRAND</span>
+          <span className="text-xs font-mono tracking-[0.4em] text-neutral-400 uppercase block">◆ THE VELORA COMMITMENT</span>
           <h2 className="text-4xl md:text-6xl font-display font-medium tracking-tight silver-white leading-none">
-            An Atelier Built on Pure Precision
+            A Brand Built on Pure Precision
           </h2>
           
           <div className="space-y-6 text-neutral-400 font-light text-base md:text-lg leading-relaxed font-serif-lux italic">
             <p>
-              "Crafted for Modern India." We believe luxury isn't about excess. It is the perfect cohesion of architectural silhouettes, avant-garde details, and local Indian artisanal soul.
+              "Crafted for Modern India." We believe luxury isn't about excess. It is the perfect cohesion of beautiful silhouettes, meticulous details, and local Indian artisanal soul.
             </p>
             <p>
-              "Built with precision." Every loopback knit thread is meticulously measured, every silken french seam double-checked, and every sample wear-tested through the streets of Bengaluru.
+              "Built with precision." Every stitch is meticulously measured, every silken French seam is double-checked, and every sample is wear-tested through the streets of Bengaluru.
             </p>
             <p>
-              "Worn with confidence." You do not just drape Velora; you wear a vision of futuristic Indian fashion designed to transcend trends and outlive seasons.
+              "Worn with confidence." You do not just drape Velora; you wear a vision of modern Indian fashion designed to transcend trends and outlive seasons.
             </p>
           </div>
 
@@ -884,7 +1133,7 @@ const BrandStory = () => {
           >
             <img 
               src="https://images.unsplash.com/photo-1610030469668-93535c17b6b3?auto=format&fit=crop&q=80&w=600" 
-              alt="Atelier drafting" 
+              alt="Velora drafting" 
               className="w-full h-full object-cover grayscale opacity-60 group-hover:scale-105 group-hover:grayscale-0 transition-all duration-1000" 
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent" />
@@ -900,7 +1149,7 @@ const BrandStory = () => {
           >
             <img 
               src="https://images.unsplash.com/photo-1631856955355-15a00bd7708c?auto=format&fit=crop&q=80&w=600" 
-              alt="Atelier weaving" 
+              alt="Velora weaving" 
               className="w-full h-full object-cover grayscale opacity-60 group-hover:scale-105 group-hover:grayscale-0 transition-all duration-1000" 
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent" />
@@ -1044,6 +1293,585 @@ const FaqInline = () => {
   )
 }
 
+const AIGiftFinderModal = ({ onClose }) => {
+  const { user, setRoute, toggleWishlist, wishlist, addToCart, setQuickViewProduct } = useShop()
+  const [step, setStep] = useState(1)
+  const [selections, setSelections] = useState({
+    recipient: '',
+    occasion: '',
+    budget: '',
+    color: '',
+    style: ''
+  })
+  const [loadingState, setLoadingState] = useState('selection') // 'selection', 'loading', 'results'
+  const [results, setResults] = useState({ products: [], greeting: '' })
+  const [loadMsgIdx, setLoadMsgIdx] = useState(0)
+
+  const LOADING_MESSAGES = [
+    "Sourcing exclusive handloom fabrics...",
+    "Curating designs from our active collections...",
+    "Evaluating intricate embroidery and finishings...",
+    "Tailoring details to your precise recipient aesthetic...",
+    "Polishing selections for your private preview..."
+  ]
+
+  useEffect(() => {
+    if (loadingState === 'loading') {
+      const t = setInterval(() => {
+        setLoadMsgIdx(prev => (prev + 1) % LOADING_MESSAGES.length)
+      }, 1500)
+      return () => clearInterval(t)
+    }
+  }, [loadingState])
+
+  const STEPS = [
+    {
+      id: 'recipient',
+      title: 'Who is the recipient?',
+      subtitle: 'Select the primary recipient of this elegant gesture.',
+      options: [
+        { label: 'Mother', desc: 'Timeless grace and refined heritage silhouettes' },
+        { label: 'Sister', desc: 'Vibrant colors, playful detailing, and modern cuts' },
+        { label: 'Wife / Partner', desc: 'Exquisite silk creations and highly ornate craftsmanship' },
+        { label: 'Dear Friend', desc: 'Breezy linen drapes and minimalist everyday luxury' },
+        { label: 'The Bride', desc: 'Monumental designs featuring opulent fabrics and tilla' }
+      ]
+    },
+    {
+      id: 'occasion',
+      title: 'What is the celebration?',
+      subtitle: 'We match the fabric weight and decorative accents to the setting.',
+      options: [
+        { label: 'Wedding / Nikaah', desc: 'Royal mulberry silks, premium brocades, and heavy velvets' },
+        { label: 'Eid Celebration', desc: 'Festive embellishments, shadow work, and rich color-ways' },
+        { label: 'Festival / Diwali', desc: 'Bright, auspicious tones and metallic zari borders' },
+        { label: 'Birthday / Anniversary', desc: 'Graceful, versatile classics designed for special memories' },
+        { label: 'Casual Gifting', desc: 'Breathable organic cottons and lightweight linen pieces' }
+      ]
+    },
+    {
+      id: 'budget',
+      title: 'Define your budget limit',
+      subtitle: 'We will search our catalog to curate the ideal premium selection.',
+      options: [
+        { label: 'Under ₹2,000', desc: 'Refined entry luxuries and classic lightweight tunics' },
+        { label: 'Under ₹3,500', desc: 'Intricate chikankari and midweight festive ensembles' },
+        { label: 'Under ₹5,000', desc: 'Exquisite heavy embroidered velvet and pure silk sets' },
+        { label: 'No Limit', desc: 'Our absolute finest, limited-edition masterworks' }
+      ]
+    },
+    {
+      id: 'color',
+      title: 'Choose a preferred color family',
+      subtitle: 'A primary aesthetic palette, or let our design catalog speak for itself.',
+      options: [
+        { label: 'Emerald & Teal Green', desc: 'Deep, traditional jewel tones' },
+        { label: 'Royal Maroon & Crimson', desc: 'Warm, opulent, festive expressions' },
+        { label: 'Sapphire & Indigo Blue', desc: 'Regal, calm, majestic visual weights' },
+        { label: 'Classic Ivory & Beige', desc: 'Quiet luxury, minimal, understated grace' },
+        { label: 'Void Black & Charcoal', desc: 'Modern, tailored, dramatic silhouettes' },
+        { label: 'Any Color Family', desc: 'Explore all palettes for the perfect matching design' }
+      ]
+    },
+    {
+      id: 'style',
+      title: 'Select a premium textile weight',
+      subtitle: 'From breathable summer handlooms to rich, flowing festive fabrics.',
+      options: [
+        { label: 'Pure Mulberry Silk', desc: 'Luxurious sheen, radiant texture, beautiful weight' },
+        { label: 'Lucknowi Georgette', desc: 'Delicate flowing drapery with ornate mirror accents' },
+        { label: 'Premium Cotton-Silk', desc: 'Breezy luxury, all-day comfort, clean lines' },
+        { label: 'Organic Handloom Linen', desc: 'Minimalist, organic, and clean structural silhouettes' },
+        { label: 'Any Premium Fabric', desc: 'Our concierge will select the ideal textile for the occasion' }
+      ]
+    }
+  ]
+
+  const currentStep = STEPS[step - 1]
+
+  const handleSelect = async (optionLabel) => {
+    let val = optionLabel
+    
+    // Map elegant labels to standard API filters
+    if (currentStep.id === 'budget') {
+      if (optionLabel === 'Under ₹2,000') val = '2000'
+      else if (optionLabel === 'Under ₹3,500') val = '3500'
+      else if (optionLabel === 'Under ₹5,000') val = '5000'
+      else val = '100000'
+    }
+    if (currentStep.id === 'color') {
+      if (optionLabel === 'Emerald & Teal Green') val = 'Green'
+      else if (optionLabel === 'Royal Maroon & Crimson') val = 'Maroon'
+      else if (optionLabel === 'Sapphire & Indigo Blue') val = 'Blue'
+      else if (optionLabel === 'Classic Ivory & Beige') val = 'White'
+      else if (optionLabel === 'Void Black & Charcoal') val = 'Black'
+      else val = 'Any'
+    }
+    if (currentStep.id === 'style') {
+      if (optionLabel === 'Pure Mulberry Silk') val = 'Silk'
+      else if (optionLabel === 'Lucknowi Georgette') val = 'Georgette'
+      else if (optionLabel === 'Premium Cotton-Silk') val = 'Cotton'
+      else if (optionLabel === 'Organic Handloom Linen') val = 'Linen'
+      else val = 'Any'
+    }
+    if (currentStep.id === 'occasion') {
+      if (optionLabel === 'Wedding / Nikaah') val = 'Wedding'
+      else if (optionLabel === 'Eid Celebration') val = 'Eid'
+      else if (optionLabel === 'Festival / Diwali') val = 'Festival'
+      else if (optionLabel === 'Birthday / Anniversary') val = 'Birthday'
+      else val = 'Casual Gift'
+    }
+    if (currentStep.id === 'recipient') {
+      if (optionLabel === 'Wife / Partner') val = 'Wife'
+      else if (optionLabel === 'Dear Friend') val = 'Friend'
+      else if (optionLabel === 'The Bride') val = 'Bride'
+      else val = optionLabel
+    }
+
+    const updatedSelections = { ...selections, [currentStep.id]: val }
+    setSelections(updatedSelections)
+
+    if (step < 5) {
+      setTimeout(() => {
+        setStep(prev => prev + 1)
+      }, 250)
+    } else {
+      setLoadingState('loading')
+      try {
+        const res = await fetch('/api/ai/gift-finder', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updatedSelections)
+        })
+        if (res.ok) {
+          const data = await res.json()
+          setResults({
+            products: data.products || [],
+            greeting: data.greeting || ''
+          })
+          if (user && user.email) {
+            try {
+              const sessionsKey = `velora_gift_sessions_${user.email}`
+              const existingSessions = JSON.parse(localStorage.getItem(sessionsKey) || '[]')
+              const newSession = {
+                id: 'GFT-' + Math.floor(100000 + Math.random() * 900000),
+                date: new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }),
+                timestamp: Date.now(),
+                selections: updatedSelections,
+                productsCount: (data.products || []).length,
+                greeting: data.greeting || ''
+              }
+              localStorage.setItem(sessionsKey, JSON.stringify([newSession, ...existingSessions]))
+            } catch (storageErr) {
+              console.warn("Storage error saving gift session:", storageErr)
+            }
+          }
+        } else {
+          toast.error("Concierge service encountered an error. Please try again.")
+        }
+      } catch (e) {
+        console.error("Failed to query gift finder:", e)
+        toast.error("Connection error. Utilizing our signature boutique fallback.")
+      } finally {
+        setLoadingState('results')
+      }
+    }
+  }
+
+  const handleBack = () => {
+    if (step > 1) {
+      setStep(prev => prev - 1)
+    }
+  }
+
+  const handleReset = () => {
+    setSelections({
+      recipient: '',
+      occasion: '',
+      budget: '',
+      color: '',
+      style: ''
+    })
+    setStep(1)
+    setLoadingState('selection')
+    setResults({ products: [], greeting: '' })
+  }
+
+  return (
+    <motion.div 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.4 }}
+      className="fixed inset-0 z-[120] bg-white flex flex-col lg:flex-row overflow-hidden"
+    >
+      {/* Left panel: Elegant Campaign Visual (Hidden on mobile) */}
+      <div className="hidden lg:flex lg:w-[40%] relative bg-neutral-950 flex-col justify-between p-16 overflow-hidden">
+        <div className="absolute inset-0">
+          <img 
+            src="https://images.unsplash.com/photo-1610030469668-93535c17b6b3?auto=format&fit=crop&q=80&w=1200" 
+            alt="Velora Editorial Campaign" 
+            className="w-full h-full object-cover opacity-35 scale-100"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-neutral-950 via-transparent to-neutral-950/50" />
+        </div>
+        
+        <div className="relative z-10">
+          <div className="font-display font-bold text-2xl tracking-wider text-white">
+            <span>V</span>
+            <span className="text-neutral-300">ELORA</span>
+          </div>
+          <span className="text-[9px] font-mono tracking-[0.4em] uppercase text-neutral-400 block mt-1">
+            GIFTING CONCIERGE
+          </span>
+        </div>
+
+        <div className="relative z-10 max-w-sm space-y-4">
+          <p className="text-xs font-mono tracking-[0.25em] uppercase text-neutral-400">
+            Couture Gifting
+          </p>
+          <h3 className="text-3xl font-display font-light text-white leading-tight">
+            The Art of <span className="font-serif-lux italic text-neutral-100">Personal Curation</span>
+          </h3>
+          <p className="text-xs text-neutral-400 leading-relaxed font-sans">
+            Our virtual boutique advisor maps textile weight, handloom weaves, and design palettes against your recipient’s profile to ensure a gesture of true distinction.
+          </p>
+        </div>
+
+        <div className="relative z-10 text-[9px] font-mono tracking-widest text-neutral-500 uppercase">
+          © VELORA BOUTIQUE 2026
+        </div>
+      </div>
+
+      {/* Right panel: Active Interactive Area */}
+      <div className="flex-1 flex flex-col bg-[#FCFBF9] overflow-hidden relative">
+        
+        {/* Header Bar */}
+        <div className="px-8 py-5 border-b border-neutral-100 flex items-center justify-between bg-white/80 backdrop-blur-md">
+          <div className="flex items-center gap-3">
+            <div className="text-xs font-mono tracking-[0.2em] uppercase text-neutral-800 font-semibold">
+              VELORA ASSISTANT
+            </div>
+          </div>
+          <button 
+            onClick={onClose}
+            className="group flex items-center gap-1.5 text-xs font-mono text-neutral-400 hover:text-neutral-900 uppercase tracking-widest transition-colors duration-300"
+          >
+            <span>Close</span>
+            <X className="w-4 h-4 transition-transform group-hover:rotate-90 duration-300" />
+          </button>
+        </div>
+
+        {/* Dynamic Inner Body based on loadingState */}
+        {loadingState === 'selection' && (
+          <div className="flex-1 overflow-y-auto px-6 py-10 md:px-16 md:py-16 flex flex-col justify-between max-w-3xl mx-auto w-full">
+            
+            {/* Minimalist Step Progress */}
+            <div className="mb-10 flex items-center justify-between">
+              <span className="text-[10px] font-mono tracking-[0.3em] uppercase text-neutral-400 font-bold">
+                Step {step.toString().padStart(2, '0')} / 05
+              </span>
+              <div className="w-32 h-px bg-neutral-100 relative overflow-hidden">
+                <motion.div 
+                  initial={{ left: "-100%" }}
+                  animate={{ left: `${(step / 5) * 100 - 100}%` }}
+                  transition={{ duration: 0.4, ease: "easeOut" }}
+                  className="absolute inset-0 bg-neutral-950"
+                />
+              </div>
+            </div>
+
+            {/* Question Heading */}
+            <div className="mb-12">
+              <h2 className="text-3xl md:text-4xl font-display font-light text-neutral-950 tracking-tight leading-tight">
+                {currentStep.title}
+              </h2>
+              <p className="text-sm text-neutral-500 font-serif-lux italic font-light mt-2">
+                {currentStep.subtitle}
+              </p>
+            </div>
+
+            {/* Selection Options List */}
+            <div className="space-y-3 md:space-y-4 mb-12">
+              {currentStep.options.map((opt) => (
+                <motion.button
+                  key={opt.label}
+                  whileHover={{ x: 4 }}
+                  onClick={() => handleSelect(opt.label)}
+                  className={`w-full text-left p-5 rounded-xl border transition-all duration-300 flex items-center justify-between ${
+                    selections[currentStep.id] === opt.label 
+                      ? 'bg-neutral-950 border-neutral-950 text-white shadow-sm' 
+                      : 'bg-white border-neutral-200/60 text-neutral-850 hover:bg-[#FAF9F5] hover:border-neutral-400'
+                  }`}
+                >
+                  <div className="space-y-0.5 max-w-[90%]">
+                    <span className="text-xs sm:text-sm font-semibold tracking-tight block">{opt.label}</span>
+                    <span className={`text-[11px] font-light leading-normal block ${selections[currentStep.id] === opt.label ? 'text-neutral-300' : 'text-neutral-500 font-serif-lux italic'}`}>
+                      {opt.desc}
+                    </span>
+                  </div>
+                  <ChevronRight className={`w-4 h-4 opacity-50 ${selections[currentStep.id] === opt.label ? 'text-white' : 'text-neutral-400'}`} />
+                </motion.button>
+              ))}
+            </div>
+
+            {/* Footer Navigation */}
+            <div className="pt-6 border-t border-neutral-100 flex items-center justify-between">
+              {step > 1 ? (
+                <button 
+                  onClick={handleBack}
+                  className="text-[10px] font-mono tracking-widest text-neutral-400 hover:text-neutral-900 transition-colors uppercase flex items-center gap-1.5"
+                >
+                  <ChevronLeft className="w-4 h-4" /> Back to Previous
+                </button>
+              ) : (
+                <div />
+              )}
+              
+              <button 
+                onClick={onClose}
+                className="text-[10px] font-mono tracking-widest text-neutral-400 hover:text-neutral-600 transition-colors uppercase"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+
+        {loadingState === 'loading' && (
+          <div className="flex-1 p-8 flex flex-col items-center justify-center min-h-[350px]">
+            <div className="relative mb-6">
+              <div className="w-10 h-10 border border-neutral-200 border-t-neutral-950 rounded-full animate-spin" style={{ animationDuration: '1.2s' }} />
+            </div>
+            <div className="h-12 flex items-center justify-center">
+              <motion.p 
+                key={loadMsgIdx}
+                initial={{ opacity: 0, y: 5 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -5 }}
+                transition={{ duration: 0.4 }}
+                className="text-sm font-serif-lux italic font-light text-neutral-700 tracking-wide text-center max-w-sm"
+              >
+                {LOADING_MESSAGES[loadMsgIdx]}
+              </motion.p>
+            </div>
+            <p className="text-[9px] font-mono uppercase tracking-[0.3em] text-neutral-400 mt-4">
+              VELORA DIGITAL CONCIERGE
+            </p>
+          </div>
+        )}
+
+        {loadingState === 'results' && (
+          <div className="flex-1 flex flex-col overflow-hidden">
+            
+            {/* Results Header */}
+            <div className="text-center px-6 py-8 md:py-12 border-b border-neutral-100 bg-white shadow-sm flex flex-col items-center">
+              <span className="text-[10px] font-mono tracking-[0.3em] text-neutral-400 uppercase font-bold mb-2">
+                PERSONALIZED DIERECTORY
+              </span>
+              <h3 className="text-xl sm:text-2xl font-display font-light text-neutral-900 px-4 max-w-2xl mx-auto leading-relaxed">
+                {results.greeting || "We curated these gorgeous recommendations for you."}
+              </h3>
+              <div className="w-6 h-px bg-neutral-200 my-4" />
+              <p className="text-xs text-neutral-400 font-sans tracking-wide">
+                Exquisite ethnic ensembles tailored exactly to your specified gift parameters.
+              </p>
+            </div>
+
+            {/* Recommendations Grid Container */}
+            <div className="overflow-y-auto flex-1 p-6 md:p-10 bg-[#FCFBF9]">
+              {results.products.length === 0 ? (
+                <div className="text-center py-16 max-w-sm mx-auto space-y-4 bg-white p-8 rounded-2xl border border-neutral-150">
+                  <p className="text-neutral-500 text-xs font-serif-lux italic">No exact catalog designs match your filters. Let us reset our search variables to view our broad designer inventory.</p>
+                  <button 
+                    onClick={handleReset} 
+                    className="w-full bg-neutral-950 hover:bg-neutral-800 text-white py-3.5 rounded-full text-xs font-semibold uppercase tracking-widest transition-colors duration-300"
+                  >
+                    Reset Variables
+                  </button>
+                </div>
+              ) : (
+                <div className="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-10">
+                  {results.products.map((p) => {
+                    const inWL = wishlist.includes(p.id)
+                    return (
+                      <div 
+                        key={p.id} 
+                        className="group bg-white border border-neutral-200/60 rounded-2xl overflow-hidden p-4 flex flex-col justify-between hover:shadow-[0_12px_40px_rgba(0,0,0,0.04)] hover:border-neutral-300 transition-all duration-300"
+                      >
+                        <div>
+                          {/* Image */}
+                          <div 
+                            className="relative aspect-[3/4] rounded-xl overflow-hidden bg-neutral-100 mb-4 cursor-pointer" 
+                            onClick={() => { setRoute({ view: 'product', id: p.id }); onClose(); }}
+                          >
+                            <img src={p.images[0]} alt={p.name} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-[1.03]" />
+                            <button 
+                              onClick={(e) => { e.stopPropagation(); toggleWishlist(p.id) }} 
+                              className="absolute top-3 right-3 w-8.5 h-8.5 rounded-full bg-white/90 backdrop-blur-sm shadow-sm flex items-center justify-center hover:scale-105 transition"
+                            >
+                              <Heart className={`w-3.5 h-3.5 ${inWL ? 'fill-red-500 text-red-500' : 'text-neutral-700'}`} />
+                            </button>
+                          </div>
+
+                          {/* Info */}
+                          <div className="space-y-1.5 px-1">
+                            <span className="text-[9px] font-mono text-neutral-400 uppercase tracking-[0.2em] font-medium block">
+                              {p.category}
+                            </span>
+                            <h3 
+                              className="text-sm font-medium text-neutral-900 leading-snug line-clamp-1 hover:underline cursor-pointer" 
+                              onClick={() => { setRoute({ view: 'product', id: p.id }); onClose(); }}
+                            >
+                              {p.name}
+                            </h3>
+                            
+                            <div className="flex items-center gap-2 pt-0.5">
+                              <span className="text-sm font-semibold text-neutral-950">{fmt(p.price)}</span>
+                              <span className="text-xs text-neutral-400 line-through">{fmt(p.mrp)}</span>
+                              <span className="text-[10px] font-semibold text-neutral-900 bg-neutral-100 px-1.5 py-0.5 rounded">-{p.discount}%</span>
+                            </div>
+
+                            {/* Elegant AI Reason styled as designer concierge notes */}
+                            {p.aiReason && (
+                              <div className="mt-4 p-4 bg-[#FAF9F5] border border-neutral-200/50 rounded-xl text-[11.5px] text-neutral-600 leading-relaxed italic relative">
+                                <span className="font-mono text-[8.5px] uppercase tracking-[0.2em] text-neutral-400 font-bold block not-italic mb-1.5">
+                                  CONCIERGE NOTE
+                                </span>
+                                "{p.aiReason}"
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Actions */}
+                        <div className="flex gap-2 mt-5 px-1 pb-1">
+                          <button 
+                            onClick={() => { addToCart(p, p.sizes[0], p.colors[0]); toast.success(`Added ${p.name} to cart!`) }}
+                            className="flex-1 py-3 rounded-xl bg-neutral-950 text-white font-medium text-xs flex items-center justify-center gap-1.5 hover:bg-neutral-800 transition-colors"
+                          >
+                            <ShoppingBag className="w-3.5 h-3.5" /> Quick Add
+                          </button>
+                          <button 
+                            onClick={() => setQuickViewProduct(p)}
+                            className="px-3 py-3 rounded-xl bg-white text-neutral-800 border border-neutral-200 hover:bg-[#FAF9F5] transition-colors"
+                            title="Quick View"
+                          >
+                            <Search className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Stepper Footer / Result Actions */}
+            <div className="px-8 py-5 border-t border-neutral-100 bg-white flex items-center justify-between">
+              <button 
+                onClick={handleReset}
+                className="text-[10px] font-mono tracking-widest text-neutral-400 hover:text-neutral-900 transition-colors uppercase"
+              >
+                Restart Personal Curation
+              </button>
+              <button 
+                onClick={onClose}
+                className="px-6 py-3 bg-neutral-950 text-white rounded-full text-[10px] font-mono tracking-widest uppercase hover:bg-neutral-850 transition-colors"
+              >
+                Exit Concierge
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </motion.div>
+  )
+}
+
+const AIGiftFinderBanner = () => {
+  const { setRoute } = useShop()
+  const [isOpen, setIsOpen] = useState(false)
+
+  return (
+    <section className="max-w-[1600px] mx-auto px-6 md:px-12 py-16 md:py-24">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true }}
+        transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+        className="relative bg-[#FAF9F5] border border-neutral-200/40 rounded-3xl overflow-hidden shadow-sm grid grid-cols-1 lg:grid-cols-12 gap-12 items-center p-8 md:p-16 lg:p-20"
+      >
+        {/* Subtle luxury background grid detail */}
+        <div className="absolute inset-0 pointer-events-none opacity-[0.015]" style={{ backgroundImage: 'radial-gradient(circle, #000 1px, transparent 1px)', backgroundSize: '16px 16px' }} />
+
+        {/* Left Side Content */}
+        <div className="lg:col-span-6 z-10 flex flex-col justify-center space-y-6">
+          <div className="flex items-center gap-2">
+            <span className="h-[1px] w-6 bg-neutral-350"></span>
+            <span className="text-[10px] tracking-[0.25em] font-mono uppercase text-neutral-500 font-semibold">
+              The Art of Giving
+            </span>
+          </div>
+
+          <h2 className="text-4xl md:text-5xl lg:text-6xl font-display font-light text-neutral-950 tracking-tight leading-[1.1]">
+            A Curated <br />
+            <span className="font-serif-lux italic font-light text-neutral-850">Gifting Experience</span>
+          </h2>
+
+          <p className="text-sm md:text-base text-neutral-600 font-sans leading-relaxed max-w-lg">
+            Our luxury digital assistant maps fabric weights, intricate weaves, and design palettes against your recipient’s profile to select the absolute perfect ensemble—wrapped meticulously in our signature linen packaging.
+          </p>
+
+          <p className="text-[10.5px] text-neutral-400 font-mono tracking-widest uppercase">
+            Sourced for weddings, Eid, festivals, and milestones.
+          </p>
+
+          <div className="flex flex-wrap gap-4 pt-2">
+            <button
+              onClick={() => setIsOpen(true)}
+              className="bg-neutral-950 text-white hover:bg-neutral-800 h-13 px-8 rounded-full text-xs font-semibold uppercase tracking-widest transition-all duration-300 flex items-center justify-center gap-2 group"
+            >
+              <span>Find the Perfect Gift</span>
+              <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform duration-300" />
+            </button>
+
+            <button
+              onClick={() => setRoute({ view: 'shop' })}
+              className="border border-neutral-300 bg-transparent text-neutral-800 hover:bg-neutral-50 h-13 px-8 rounded-full text-xs font-semibold uppercase tracking-widest transition-all duration-300"
+            >
+              <span>Browse Collection</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Right Side Image */}
+        <div className="lg:col-span-6 relative h-[450px] md:h-[550px] w-full rounded-2xl overflow-hidden group">
+          <div className="absolute inset-0 bg-neutral-950/5 z-10 group-hover:bg-neutral-950/0 transition-colors duration-500" />
+          
+          <motion.img
+            initial={{ opacity: 0, scale: 1.03 }}
+            whileInView={{ opacity: 1, scale: 1 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
+            src="https://images.unsplash.com/photo-1617627143750-d86bc21e42bb?auto=format&fit=crop&q=80&w=1200"
+            alt="Velora Luxury Coutures"
+            className="w-full h-full object-cover rounded-2xl transition-transform duration-1000 group-hover:scale-[1.01]"
+          />
+          <div className="absolute bottom-4 right-4 bg-white/85 backdrop-blur-md border border-neutral-200/20 px-3.5 py-1.5 rounded-lg text-[9px] font-mono text-neutral-500 tracking-widest uppercase z-20 shadow-sm">
+            CAMPAIGN 2026 / COUTURE GIVING
+          </div>
+        </div>
+      </motion.div>
+
+      {/* Modal Overlay component */}
+      <AnimatePresence>
+        {isOpen && <AIGiftFinderModal onClose={() => setIsOpen(false)} />}
+      </AnimatePresence>
+    </section>
+  )
+}
+
 const HomePage = () => (
   <>
     <Hero />
@@ -1100,7 +1928,7 @@ const ShopPage = () => {
       setAiExplanation('')
     } catch (err) {
       console.error("AI Smart Search error:", err)
-      toast.error("Atelier concierge search is temporarily offline")
+      toast.error("Velora smart search is temporarily offline")
     } finally {
       setLoadingAi(false)
     }
@@ -1123,7 +1951,7 @@ const ShopPage = () => {
         }).then(r => r.json())
         setAiProducts(res.products || [])
         setAiExplanation(res.explanation || '')
-        toast.success("Atelier vision scan complete")
+        toast.success("Velora image search scan complete")
       } catch (err) {
         console.error("AI Visual Search error:", err)
         toast.error("Visual recognition is currently offline")
@@ -1240,7 +2068,7 @@ const ShopPage = () => {
         {loadingAi && (
           <div className="flex items-center gap-2 mt-3 text-[10px] font-mono text-neutral-500 tracking-wider">
             <RefreshCw className="w-3.5 h-3.5 animate-spin text-neutral-950" />
-            <span>Consulting VELORA Atelier archive intelligence...</span>
+            <span>Consulting VELORA search intelligence...</span>
           </div>
         )}
 
@@ -1301,6 +2129,39 @@ const ProductPage = () => {
   const [reviewSummary, setReviewSummary] = useState(null)
   const [loadingSummary, setLoadingSummary] = useState(false)
   const [addedAccessories, setAddedAccessories] = useState({})
+
+  // Zoom states
+  const [zoomPos, setZoomPos] = useState({ x: 0, y: 0 })
+  const [isZoomed, setIsZoomed] = useState(false)
+
+  // Sticky state
+  const [showSticky, setShowSticky] = useState(false)
+  const addToBagBtnRef = useRef(null)
+
+  useEffect(() => {
+    if (!product) return;
+    const observer = new IntersectionObserver(([entry]) => {
+      setShowSticky(!entry.isIntersecting)
+    }, { threshold: 0 })
+
+    const timer = setTimeout(() => {
+      if (addToBagBtnRef.current) {
+        observer.observe(addToBagBtnRef.current)
+      }
+    }, 500)
+
+    return () => {
+      clearTimeout(timer)
+      observer.disconnect()
+    }
+  }, [product])
+
+  const handleMouseMove = (e) => {
+    const { left, top, width, height } = e.currentTarget.getBoundingClientRect()
+    const x = ((e.clientX - left) / width) * 100
+    const y = ((e.clientY - top) / height) * 100
+    setZoomPos({ x, y })
+  }
 
   useEffect(() => {
     if (!product?.id) return;
@@ -1369,19 +2230,37 @@ const ProductPage = () => {
       </div>
       <div className="grid md:grid-cols-2 gap-8 lg:gap-16">
         <div className="space-y-4">
-          <div className="aspect-[3/4] rounded-2xl overflow-hidden bg-black/[0.02] relative group">
-            <img src={product.images[imgIdx]} alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-1000" />
-            {product.images.length > 1 && (
+          <div 
+            onMouseEnter={() => setIsZoomed(true)}
+            onMouseLeave={() => setIsZoomed(false)}
+            onMouseMove={handleMouseMove}
+            className="aspect-[3/4] rounded-2xl overflow-hidden bg-black/[0.02] relative group cursor-zoom-in"
+          >
+            <img 
+              src={product.images[imgIdx]} 
+              alt={product.name} 
+              className="w-full h-full object-cover transition-transform duration-200" 
+              style={{
+                transform: isZoomed ? 'scale(2)' : 'scale(1)',
+                transformOrigin: `${zoomPos.x}% ${zoomPos.y}%`
+              }}
+            />
+            {product.images.length > 1 && !isZoomed && (
               <>
                 <button onClick={() => setImgIdx((imgIdx - 1 + product.images.length) % product.images.length)} className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full glass-strong flex items-center justify-center"><ChevronLeft className="w-5 h-5" /></button>
                 <button onClick={() => setImgIdx((imgIdx + 1) % product.images.length)} className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full glass-strong flex items-center justify-center"><ChevronRight className="w-5 h-5" /></button>
               </>
             )}
+            {!isZoomed && (
+              <div className="absolute bottom-4 right-4 bg-black/50 backdrop-blur-md px-3 py-1.5 rounded-full text-white text-[9px] tracking-widest uppercase font-mono font-bold opacity-0 group-hover:opacity-100 transition-opacity">
+                🔍 Hover to Zoom Fabric
+              </div>
+            )}
           </div>
           {product.images.length > 1 && (
             <div className="flex gap-2">
               {product.images.map((im, i) => (
-                <button key={i} onClick={() => setImgIdx(i)} className={`w-20 h-24 rounded-lg overflow-hidden border-2 ${imgIdx === i ? 'border-blue-400' : 'border-transparent opacity-50'}`}>
+                <button key={i} onClick={() => setImgIdx(i)} className={`w-20 h-24 rounded-lg overflow-hidden border-2 ${imgIdx === i ? 'border-neutral-900 opacity-100' : 'border-transparent opacity-50'}`}>
                   <img src={im} className="w-full h-full object-cover" alt="" />
                 </button>
               ))}
@@ -1389,7 +2268,7 @@ const ProductPage = () => {
           )}
         </div>
         <div>
-          {product.badge && <span className="inline-block px-3 py-1 text-[10px] tracking-[0.2em] font-bold rounded-full glass mb-4 text-blue-400">{product.badge}</span>}
+          {product.badge && <span className="inline-block px-3 py-1 text-[10px] tracking-[0.2em] font-bold rounded-full glass mb-4 text-neutral-800">{product.badge}</span>}
           <h1 className="text-4xl md:text-5xl font-display font-bold silver-text mb-3">{product.name}</h1>
           <div className="flex items-center gap-4 text-sm mb-6">
             <div className="flex items-center gap-1"><Star className="w-4 h-4 fill-amber-400 text-amber-400" /> {product.rating}</div>
@@ -1407,7 +2286,7 @@ const ProductPage = () => {
           <p className="text-neutral-700 leading-relaxed mb-8 font-serif-lux text-lg italic">{product.description}</p>
 
           <div className="mb-6">
-            <div className="flex items-center justify-between mb-3"><p className="text-sm font-medium uppercase tracking-wider text-neutral-500 text-xs">Atelier Color: <span className="text-neutral-900 font-semibold">{color}</span></p></div>
+            <div className="flex items-center justify-between mb-3"><p className="text-sm font-medium uppercase tracking-wider text-neutral-500 text-xs">Color: <span className="text-neutral-900 font-semibold">{color}</span></p></div>
             <div className="flex flex-wrap gap-2">
               {product.colors.map(c => (
                 <button key={c} onClick={() => setColor(c)} className={`px-4 py-2 rounded-full text-xs font-medium border transition duration-300 uppercase tracking-wider ${color === c ? 'border-neutral-950 bg-neutral-950/5 text-neutral-950 font-bold' : 'border-neutral-200 text-neutral-500 hover:border-neutral-400'}`}>{c}</button>
@@ -1416,7 +2295,7 @@ const ProductPage = () => {
           </div>
           <div className="mb-6">
             <div className="flex items-center justify-between mb-3">
-              <p className="text-sm font-medium uppercase tracking-wider text-neutral-500 text-xs">Atelier Size: <span className="text-neutral-900 font-semibold">{size}</span></p>
+              <p className="text-sm font-medium uppercase tracking-wider text-neutral-500 text-xs">Size: <span className="text-neutral-900 font-semibold">{size}</span></p>
               <button onClick={() => setShowSizeModal(true)} className="text-xs text-neutral-950 hover:text-neutral-600 font-semibold tracking-wider uppercase underline flex items-center gap-1">✨ AI Size Advisor</button>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -1429,7 +2308,7 @@ const ProductPage = () => {
           {product.stock && product.stock <= 50 && (
             <div className="flex items-center gap-2 text-[10px] font-mono uppercase tracking-widest text-amber-700 bg-amber-500/5 border border-amber-500/10 rounded-xl p-3.5 mb-5">
               <span className="w-1.5 h-1.5 rounded-full bg-amber-600 animate-pulse" />
-              <span>Limited Archive: Only {product.stock} items of this silhouette remain in stock.</span>
+              <span>Limited Edition: Only {product.stock} items of this silhouette remain in stock.</span>
             </div>
           )}
 
@@ -1439,14 +2318,14 @@ const ProductPage = () => {
               <span className="w-10 text-center font-semibold text-sm">{qty}</span>
               <button onClick={() => setQty(qty + 1)} className="w-10 h-10 flex items-center justify-center"><Plus className="w-4 h-4" /></button>
             </div>
-            <Button onClick={() => { addToCart(product, size, color, qty); }} className="flex-1 h-12 rounded-full bg-neutral-950 text-white hover:bg-neutral-800 transition duration-300 font-semibold tracking-widest text-xs uppercase"><ShoppingBag className="w-4 h-4 mr-2" /> Add to Bag</Button>
+            <Button ref={addToBagBtnRef} onClick={() => { addToCart(product, size, color, qty); }} className="flex-1 h-12 rounded-full bg-neutral-950 text-white hover:bg-neutral-800 transition duration-300 font-semibold tracking-widest text-xs uppercase"><ShoppingBag className="w-4 h-4 mr-2" /> Add to Bag</Button>
             <button onClick={() => toggleWishlist(product.id)} className="w-12 h-12 rounded-full glass flex items-center justify-center border border-black/10 hover:border-red-400/50">
-              <Heart className={`w-5 h-5 ${wishlist.includes(product.id) ? 'fill-red-500 text-red-500' : ''}`} />
+              <Heart className={`w-5 h-5 ${wishlist.includes(product.id) ? 'fill-red-500 text-red-500 animate-pulse' : ''}`} />
             </button>
           </div>
 
           <div className="glass rounded-2xl p-5 mb-6 border border-black/10">
-            <p className="text-sm font-medium mb-3 flex items-center gap-2"><MapPin className="w-4 h-4 text-blue-400" /> Check delivery</p>
+            <p className="text-sm font-medium mb-3 flex items-center gap-2"><MapPin className="w-4 h-4 text-neutral-800" /> Check delivery</p>
             <div className="flex gap-2">
               <Input value={pin} onChange={(e) => setPin(e.target.value)} placeholder="Enter pincode" className="bg-black/[0.02] border-black/10" maxLength={6} />
               <Button onClick={checkPin} variant="outline" className="border-black/15">Check</Button>
@@ -1475,9 +2354,9 @@ const ProductPage = () => {
             <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl from-amber-500/10 to-transparent pointer-events-none" />
             <div className="flex items-center gap-2 mb-4">
               <Sparkles className="w-4 h-4 text-amber-500" />
-              <p className="text-xs font-mono uppercase tracking-widest text-amber-500 font-bold">Atelier AI Synthesis</p>
+              <p className="text-xs font-mono uppercase tracking-widest text-amber-500 font-bold">AI Customer Feedback Summary</p>
             </div>
-            <h3 className="text-sm font-semibold tracking-wide uppercase text-neutral-200 mb-2">Patron Sentiment Highlights</h3>
+            <h3 className="text-sm font-semibold tracking-wide uppercase text-neutral-200 mb-2">Customer Experience Highlights</h3>
             
             {loadingSummary ? (
               <div className="space-y-2 py-2">
@@ -1500,7 +2379,7 @@ const ProductPage = () => {
                 </p>
               </div>
             ) : (
-              <p className="text-xs text-neutral-400 font-light">Patrons highly praise this limited-run curation for its exquisite drapery retention and timeless craft.</p>
+              <p className="text-xs text-neutral-400 font-light">Customers highly praise this limited-run collection for its exquisite fabric, elegant design, and beautiful drape.</p>
             )}
           </div>
         </div>
@@ -1511,18 +2390,18 @@ const ProductPage = () => {
         <div className="max-w-2xl mb-12">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-neutral-100 border border-black/5 text-neutral-600 mb-4">
             <Sparkles className="w-3 h-3 text-amber-600 animate-pulse" />
-            <span className="text-[9px] font-mono uppercase tracking-widest font-bold">Atelier Concierge Curation</span>
+            <span className="text-[9px] font-mono uppercase tracking-widest font-bold">Styling Suggestions</span>
           </div>
-          <h2 className="text-3xl font-display font-medium tracking-tight">Atelier Lookbook: Complete the Look</h2>
+          <h2 className="text-3xl font-display font-medium tracking-tight">Complete the Look</h2>
           <p className="text-neutral-500 text-sm font-light mt-2 leading-relaxed font-serif-lux italic">
-            Our AI stylist Vera has meticulously selected these bespoke accents to complete your ethnic ensemble.
+            Our AI stylist Vera has carefully selected these premium accents to perfectly complete your ethnic ensemble.
           </p>
         </div>
 
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
           {[
             { id: 'acc-dupatta', name: 'Zari Embroidered Organza Dupatta', price: 1499, image: 'https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3wxMTgwOTN8MHwxfHNlYXJjaHw0fHxpbmRpYW4lMjBzYXJlZXxlbnwwfHx8fDE3ODMxMzg2NDN8MA&ixlib=rb-4.1.0&q=80&w=400', category: 'DUPATTA', color: 'Ivory Silk', size: 'One Size' },
-            { id: 'acc-jewelry', name: 'Kundan Polki Jhumka Earrings', price: 1899, image: 'https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3wxMTgwOTN8MHwxfHNlYXJjaHwyfHxpbmRpYW4lMjBqZXdlbHJ5fGVufDB8fHx8MTc4MzEzODY0M3ww&ixlib=rb-4.1.0&q=80&w=400', category: 'ATELIER JEWELRY', color: 'Gold Polish', size: 'One Size' },
+            { id: 'acc-jewelry', name: 'Kundan Polki Jhumka Earrings', price: 1899, image: 'https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3wxMTgwOTN8MHwxfHNlYXJjaHwyfHxpbmRpYW4lMjBqZXdlbHJ5fGVufDB8fHx8MTc43EzODY0M3ww&ixlib=rb-4.1.0&q=80&w=400', category: 'FINE JEWELRY', color: 'Gold Polish', size: 'One Size' },
             { id: 'acc-clutch', name: 'Velvet Embellished Clutch', price: 2499, image: 'https://images.unsplash.com/photo-1566150905458-1bf1fc15aae9?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3wxMTgwOTN8MHwxfHNlYXJjaHwyfHxsdXh1cnklMjBiYWd8ZW58MHx8fHwxNzgzMTM4NjQzfDA&ixlib=rb-4.1.0&q=80&w=400', category: 'HANDBAG', color: 'Void Black', size: 'One Size' },
             { id: 'acc-mojaris', name: 'Mirror-work Velvet Mojaris', price: 1999, image: 'https://images.unsplash.com/photo-1543163521-1bf539c55dd2?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3wxMTgwOTN8MHwxfHNlYXJjaHwzfHxzaG9lc3xlbnwwfHx8fDE3ODMxMzg2NDN8MA&ixlib=rb-4.1.0&q=80&w=400', category: 'FOOTWEAR', color: 'Champagne Gold', size: '7' }
           ].map((acc) => {
@@ -1572,6 +2451,7 @@ const ProductPage = () => {
         <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm overflow-y-auto">
           <div className="relative">
             <PremiumSizeGuide 
+              product={product}
               onClose={() => setShowSizeModal(false)}
               onApplySize={(calculatedSize) => {
                 setSize(calculatedSize);
@@ -1588,6 +2468,40 @@ const ProductPage = () => {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">{related.map((p, i) => <ProductCard key={p.id} p={p} idx={i} />)}</div>
         </div>
       )}
+
+      {/* Floating Sticky Add to Cart Bar */}
+      <AnimatePresence>
+        {showSticky && (
+          <motion.div 
+            initial={{ y: 100 }} 
+            animate={{ y: 0 }} 
+            exit={{ y: 100 }}
+            className="fixed bottom-0 left-0 right-0 bg-white border-t border-black/10 px-4 py-3 z-40 flex items-center justify-between shadow-[0_-8px_30px_rgb(0,0,0,0.06)] md:px-8"
+          >
+            <div className="flex items-center gap-3">
+              <img src={product.images[0]} className="w-10 h-12 object-cover rounded-md" alt="" />
+              <div>
+                <h4 className="text-xs font-semibold text-neutral-900 truncate max-w-[150px] md:max-w-[300px]">{product.name}</h4>
+                <p className="text-xs text-neutral-500 font-bold">{fmt(product.price)}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="hidden sm:flex items-center gap-1.5 text-xs text-neutral-500 mr-2">
+                <span>Size: <strong>{size || 'Default'}</strong></span>
+                <span>·</span>
+                <span>Color: <strong>{color || 'Default'}</strong></span>
+              </div>
+              <Button 
+                onClick={() => addToCart(product, size, color, qty)} 
+                size="sm" 
+                className="bg-neutral-950 text-white hover:bg-neutral-800 rounded-full text-[10px] tracking-widest uppercase font-bold px-6 py-2.5 h-auto"
+              >
+                Add to Bag
+              </Button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }
@@ -2779,20 +3693,20 @@ const StaticPage = ({ title, subtitle, children }) => (
 
 const AboutPage = () => (
   <StaticPage title="Our Story" subtitle="ABOUT VELORA">
-    <p className="text-2xl font-serif-lux italic text-neutral-900">"Velora exists at the intersection of Indian craftsmanship and futuristic design."</p>
-    <p>Founded in 2024 in Bengaluru, Velora is India's next-generation luxury fashion house. We design for the wearer of tomorrow — the individual who refuses to compromise between artistry, sustainability and modern silhouettes.</p>
-    <p>Every piece is engineered in our Bengaluru atelier using premium fabrics, ethical manufacturing partners, and obsessive attention to construction. From our signature 480 GSM oversized hoodies to our bias-cut mulberry silk slip dresses, each garment is designed to last generations.</p>
+    <p className="text-2xl font-serif-lux italic text-neutral-900">"Velora exists at the intersection of Indian craftsmanship and modern design."</p>
+    <p>Founded in 2024 in Bengaluru, Velora is India's next-generation luxury fashion house. We design for the modern individual — those who refuse to compromise between artistry, sustainability and premium silhouettes.</p>
+    <p>Every piece is engineered in our Bengaluru facility using premium fabrics, ethical manufacturing partners, and obsessive attention to construction. From our signature 480 GSM oversized hoodies to our bias-cut mulberry silk slip dresses, each garment is designed to last generations.</p>
     <div className="grid grid-cols-3 gap-6 my-12">
       {[{ n: '2M+', l: 'CUSTOMERS' }, { n: '48', l: 'CITIES' }, { n: '100%', l: 'ETHICAL' }].map(x => (
         <div key={x.l} className="glass rounded-2xl p-6 border border-black/10 text-center"><p className="text-5xl font-display font-bold silver-text neon-text">{x.n}</p><p className="text-xs tracking-[0.3em] text-neutral-500 mt-2">{x.l}</p></div>
       ))}
     </div>
-    <h2 className="text-2xl font-display font-bold text-white">Our Values</h2>
+    <h2 className="text-2xl font-display font-bold text-neutral-900">Our Values</h2>
     <ul className="list-disc list-inside space-y-2">
-      <li><b className="text-white">Craftsmanship:</b> Every stitch matters.</li>
-      <li><b className="text-white">Sustainability:</b> Recycled materials, ethical wages.</li>
-      <li><b className="text-white">Innovation:</b> Blending traditional textile mastery with modern design.</li>
-      <li><b className="text-white">Community:</b> Building the future of Indian fashion together.</li>
+      <li><b className="text-neutral-900">Craftsmanship:</b> Every stitch matters.</li>
+      <li><b className="text-neutral-900">Sustainability:</b> Recycled materials, ethical wages.</li>
+      <li><b className="text-neutral-900">Innovation:</b> Blending traditional textile mastery with modern design.</li>
+      <li><b className="text-neutral-900">Community:</b> Building the future of Indian fashion together.</li>
     </ul>
   </StaticPage>
 )
@@ -2810,14 +3724,14 @@ const ContactPage = () => {
         <div className="space-y-4">
           <div className="glass p-6 rounded-2xl border border-black/10"><p className="text-xs text-neutral-500 mb-2">EMAIL</p><p className="font-medium">hello@velora.in</p></div>
           <div className="glass p-6 rounded-2xl border border-black/10"><p className="text-xs text-neutral-500 mb-2">SUPPORT</p><p className="font-medium">+91 80 4000 5000</p><p className="text-xs text-neutral-500 mt-1">Mon-Sat, 10 AM to 8 PM IST</p></div>
-          <div className="glass p-6 rounded-2xl border border-black/10"><p className="text-xs text-neutral-500 mb-2">ATELIER</p><p className="font-medium">Velora HQ, Indiranagar<br />Bengaluru 560038, India</p></div>
+          <div className="glass p-6 rounded-2xl border border-black/10"><p className="text-xs text-neutral-500 mb-2">HEADQUARTERS</p><p className="font-medium">Velora HQ, Indiranagar<br />Bengaluru 560038, India</p></div>
         </div>
         <div className="glass rounded-2xl p-6 border border-black/10 space-y-3">
-          {sent ? <div className="text-center py-12"><Check className="w-16 h-16 text-blue-400 mx-auto mb-4" /><p>We got your message</p></div> : <>
+          {sent ? <div className="text-center py-12"><Check className="w-16 h-16 text-neutral-900 mx-auto mb-4" /><p>We got your message</p></div> : <>
             <Input placeholder="Your name" value={f.name} onChange={e => setF({ ...f, name: e.target.value })} className="bg-black/[0.02] border-black/10" />
             <Input placeholder="Email" value={f.email} onChange={e => setF({ ...f, email: e.target.value })} className="bg-black/[0.02] border-black/10" />
             <Textarea placeholder="Message" rows={5} value={f.message} onChange={e => setF({ ...f, message: e.target.value })} className="bg-black/[0.02] border-black/10" />
-            <Button onClick={send} className="w-full rounded-full bg-neutral-900 text-white hover:bg-blue-600 hover:text-white">Send Message</Button>
+            <Button onClick={send} className="w-full rounded-full bg-neutral-900 text-white hover:bg-neutral-800 hover:text-white">Send Message</Button>
           </>}
         </div>
       </div>
@@ -2833,7 +3747,7 @@ const FaqPage = () => {
     ['How do I know my size?', 'Check our detailed size guide on every product page. Our sizing runs slightly oversized — refer to the fit note.'],
     ['Is COD available?', 'Yes, Cash on Delivery is available for most pincodes in India with a small ₹49 handling fee.'],
     ['How can I track my order?', 'Use the order ID sent to your email on our Track Order page, or check your account dashboard.'],
-    ['Are your products authentic?', 'Every Velora piece is designed and manufactured in-house at our Bengaluru atelier. 100% authentic, always.'],
+    ['Are your products authentic?', 'Every Velora piece is designed and manufactured in-house at our Bengaluru facility. 100% authentic, always.'],
   ]
   return (
     <StaticPage title="Frequently Asked" subtitle="HELP CENTER">
@@ -3013,7 +3927,7 @@ const AIChatWidget = () => {
               {/* Quick options */}
               {showQuick && !loading && (
                 <div className="pt-3">
-                  <p className="text-[11px] tracking-[0.2em] text-neutral-400 mb-2 px-1 font-bold">ATELIER DIRECTORIES</p>
+                  <p className="text-[11px] tracking-[0.2em] text-neutral-400 mb-2 px-1 font-bold">HELPFUL SHORTCUTS</p>
                   <div className="grid grid-cols-2 gap-2">
                     {QUICK_OPTIONS.map(opt => (
                       <button key={opt.label} onClick={() => send(opt.q)} className="text-left p-3 rounded-xl bg-white border border-black/5 hover:border-neutral-950 hover:bg-neutral-50/50 transition group">
@@ -3163,6 +4077,7 @@ const App = () => {
   const [searchOpen, setSearchOpen] = useState(false)
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [quickViewProduct, setQuickViewProduct] = useState(null)
   const [cartOpen, setCartOpen] = useState(false)
   const [loaderComplete, setLoaderComplete] = useState(false)
  
@@ -3200,11 +4115,20 @@ const App = () => {
       window.addEventListener('online', goOnline)
       window.addEventListener('offline', goOffline)
  
-      // Register Service Worker for PWA
+      // Unregister Service Worker and clear stale chunk caches to prevent Unexpected token '<' errors
       if ('serviceWorker' in window.navigator) {
-        window.navigator.serviceWorker.register('/sw.js')
-          .then(reg => console.log('Service Worker registered with scope:', reg.scope))
-          .catch(err => console.error('Service Worker registration failed:', err))
+        window.navigator.serviceWorker.getRegistrations().then((registrations) => {
+          for (let registration of registrations) {
+            registration.unregister();
+          }
+        }).catch(err => console.error('SW unregister failed:', err));
+      }
+      if (typeof window !== 'undefined' && 'caches' in window) {
+        window.caches.keys().then((names) => {
+          for (let name of names) {
+            window.caches.delete(name);
+          }
+        }).catch(err => console.error('Cache clear failed:', err));
       }
  
       return () => {
@@ -3338,7 +4262,9 @@ const App = () => {
     recentlyViewed,
     addRecentlyViewed,
     cartOpen,
-    setCartOpen
+    setCartOpen,
+    quickViewProduct,
+    setQuickViewProduct
   }
  
   const view = route.view || 'home'
@@ -3348,6 +4274,8 @@ const App = () => {
     auth: <AuthPage />, account: <AccountPage />, about: <AboutPage />, contact: <ContactPage />,
     faq: <FaqPage />, 'size-guide': <SizeGuidePage />, shipping: <PolicyPage title="Shipping & Returns" />,
     privacy: <PolicyPage title="Privacy Policy" />, terms: <PolicyPage title="Terms & Conditions" />,
+    club: <VeloraClub useShop={useShop} />,
+    'gift-studio': <GiftStudioView useShop={useShop} />,
   }
  
   if (loading) return (
@@ -3381,6 +4309,7 @@ const App = () => {
         <SearchOverlay />
         <AIChatWidget />
         <MiniCart useShop={useShop} />
+        <QuickViewModal />
  
         {/* Realistic luxury storefront shutter overlay */}
         <VeloraOfflineShutter isOpen={shutterOpen} />
