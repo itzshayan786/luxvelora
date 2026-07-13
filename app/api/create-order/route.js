@@ -1,12 +1,11 @@
 import { NextResponse } from "next/server";
-import Razorpay from "razorpay";
+import { getRazorpay, validateEnv } from "@/lib/server-init";
+
+export const dynamic = "force-dynamic";
 
 export async function POST(req) {
   try {
-    const razorpay = new Razorpay({
-  key_id: process.env.RAZORPAY_KEY_ID,
-  key_secret: process.env.RAZORPAY_KEY_SECRET,
-});
+    const razorpay = getRazorpay();
     const body = await req.json();
 
     const { amount } = body;
@@ -33,12 +32,16 @@ export async function POST(req) {
       key: process.env.RAZORPAY_KEY_ID,
     });
   } catch (error) {
-    console.error("Create Order Error:", error);
+    console.error("CREATE_ORDER_ERROR:", error);
+
+    const isProd = process.env.NODE_ENV === "production";
 
     return NextResponse.json(
       {
         success: false,
-        error: error.message || "Unable to create order",
+        error: isProd ? "Unable to create order" : error.message,
+        code: "CREATE_ORDER_FAILED",
+        stack: !isProd ? error.stack : undefined,
       },
       { status: 500 }
     );
